@@ -1,0 +1,1169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>Poker Timer</title>
+    <style>
+        :root {
+            --bg-primary: #006400;
+            --bg-overlay: rgba(0,0,0,0.36);
+            --text-primary: #ffffff;
+            --text-gold: #ffd700;
+            --text-red: #ff3b3b;
+            --break-bg: rgba(139,0,0,0.55);
+            --button-bg: rgba(255,255,255,0.15);
+            --button-hover: rgba(255,255,255,0.3);
+            --shadow: rgba(0,0,0,0.3);
+        }
+
+        /* Light Mode */
+        body.light-mode {
+            --bg-primary: #f0f8f0;
+            --bg-overlay: rgba(0,100,0,0.15);
+            --text-primary: #000000;
+            --text-gold: #b8860b;
+            --text-red: #c41e3a;
+            --break-bg: rgba(200,0,0,0.4);
+            --button-bg: rgba(0,0,0,0.15);
+            --button-hover: rgba(0,0,0,0.25);
+            --shadow: rgba(0,0,0,0.2);
+        }
+
+        /* High Contrast Mode */
+        body.high-contrast {
+            --bg-primary: #000000;
+            --bg-overlay: rgba(0,0,0,0.8);
+            --text-primary: #ffffff;
+            --text-gold: #ffff00;
+            --text-red: #ff0000;
+            --break-bg: #8b0000;
+            --button-bg: #333333;
+            --button-hover: #ffff00;
+            color: #ffffff !important;
+        }
+        body.high-contrast .blinds,
+        body.high-contrast .next,
+        body.high-contrast .timer-row,
+        body.high-contrast #timer { color: #ffff00 !important; }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            color: var(--text-primary);
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            min-height: 100vh;
+            background: var(--bg-primary);
+            background-image:
+                repeating-linear-gradient(45deg, rgba(255,255,255,.02) 0 1px, transparent 1px 4px),
+                linear-gradient(var(--bg-overlay), var(--bg-overlay)),
+                url('background.jpg');
+            background-size: auto, auto, cover;
+            background-position: center, center, center;
+            background-repeat: repeat, no-repeat, no-repeat;
+            background-blend-mode: normal, normal, multiply;
+            transition: background-color .8s, background-image .8s;
+            overflow: hidden;
+            position: relative;
+        }
+        body:not(.break) { background-color: rgba(0,0,0,.32); }
+        .break { background-color: var(--break-bg) !important; }
+        body.generic-mode {
+            background-image: none !important;
+            background-color: var(--bg-primary) !important;
+        }
+        body.generic-mode .break {
+            background-color: var(--break-bg) !important;
+        }
+        .main-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            width: 100%;
+            flex: 1;
+            padding-top: 2vh;
+        }
+        #logo {
+            position: absolute;
+            bottom: 2vh;
+            left: 2vw;
+            max-height: 166px;
+            max-width: 414px;
+            height: auto;
+            width: auto;
+            object-fit: contain;
+            z-index: 90;
+            opacity: 0.9;
+            transition: opacity 0.3s, max-height 0.3s, max-width 0.3s;
+        }
+        #logo:hover { opacity: 1; }
+        .tv-mode #logo,
+        .generic-mode #logo,
+        .no-logo #logo { display: none; }
+        #timer {
+            font-size: 20vw;
+            font-weight: bold;
+            color: var(--text-gold);
+            text-shadow: 2px 2px 0 #000, -2px 2px 0 #000, 2px -2px 0 #000, -2px -2px 0 #000;
+            margin: 2vh 0 1vh 0;
+            transition: font-size 0.3s ease;
+        }
+        .break-message {
+            font-size: 4vw;
+            font-weight: bold;
+            color: var(--text-primary);
+            text-shadow: 2px 2px 4px #000;
+            margin: 2vh 0;
+            padding: 0 20px;
+            line-height: 1.4;
+            transition: font-size 0.3s ease;
+        }
+        .blinds { font-size: 5vw; font-weight: bold; margin: 1.5vh 0; transition: font-size 0.3s ease; }
+        .next { font-size: 2.6vw; opacity: .85; margin: 1vh 0; transition: font-size 0.3s ease; }
+        .timer-row {
+            display: flex;
+            justify-content: center;
+            gap: 6vw;
+            flex-wrap: wrap;
+            margin: 1.5vh 0;
+            font-size: 2.6vw;
+            opacity: .85;
+            transition: font-size 0.3s ease;
+        }
+        .timer-item { white-space: nowrap; transition: font-size 0.3s ease; }
+        #lunchCountdown { color: #ffcc00; }
+        #rebuyCountdown { color: #ff6666; }
+        #elapsedTime { color: #66ff66; }
+        button {
+            background: var(--button-bg);
+            color: var(--text-primary);
+            border: none;
+            border-radius: 50px;
+            padding: 0 20px;
+            cursor: pointer;
+            font-weight: bold;
+            backdrop-filter: blur(4px);
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 6px var(--shadow);
+            min-height: 44px;
+            font-size: 1.6em;
+        }
+        button:hover {
+            background: var(--button-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px var(--shadow);
+        }
+        .icon-btn {
+            font-size: 3vw;
+            padding: 10px 18px;
+            min-width: 60px;
+            background: transparent !important;
+            box-shadow: none !important;
+        }
+        .icon-btn:hover {
+            background: var(--button-bg) !important;
+            box-shadow: 0 4px 10px var(--shadow);
+        }
+        .top-right-controls, .bottom-right-modes { position: absolute; z-index: 100; }
+        .top-right-controls { top: 10px; right: 10px; display: flex; flex-direction: column; gap: 12px; }
+        .bottom-right-modes { bottom: 20px; right: 20px; display: flex; gap: 12px; }
+        #settingsPanel {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            z-index: 100;
+        }
+
+        .settings-button {
+            background: var(--button-bg);
+            padding: 10px 18px;
+            border-radius: 50px;
+            font-size: 1.6vw;
+            cursor: pointer;
+            backdrop-filter: blur(6px);
+            box-shadow: 0 3px 8px var(--shadow);
+            transition: all 0.3s ease;
+            position: relative;
+            display: inline-block;
+        }
+        .settings-button:hover {
+            background: var(--button-hover);
+            transform: translateY(-2px);
+        }
+
+        .settings-tooltip {
+            position: absolute;
+            top: 60px;
+            left: 12px;
+            background: rgba(0, 0, 0, 0.9);
+            color: #fff;
+            padding: 16px 20px;
+            border-radius: 12px;
+            font-size: 1.4vw;
+            text-align: left;
+            white-space: nowrap;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease;
+            z-index: 300;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.6);
+            pointer-events: none;
+        }
+        .tv-mode .settings-tooltip { display: none; }
+
+        .settings-panel[open] {
+            background: rgba(0, 0, 0, 0.85);
+            padding: 20px 24px;
+            border-radius: 16px;
+            width: 90vw;
+            max-width: 860px;
+            max-height: 88vh;
+            overflow-y: auto;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+            transition: all 0.4s ease;
+        }
+        .tv-mode .settings-panel { display: none; }
+        .settings-group { margin: 16px 0; padding: 12px; border-radius: 6px; text-align: left; }
+        .settings-group:nth-child(odd) { background: rgba(0, 0, 0, 0.3); }
+        .settings-group:nth-child(even) { background: rgba(0, 20, 0, 0.4); }
+        .settings-group label { display: block; margin: 10px 0; }
+        table { width: 100%; border-collapse: collapse; font-size: 1vw; margin-top: 8px; }
+        th, td { padding: 6px; text-align: center; }
+        input[type=number], input[type=text], select {
+            width: 90px;
+            padding: 4px;
+            background: rgba(0,0,0,0.6);
+            color: #fff;
+            border: 1px solid #555;
+            border-radius: 4px;
+        }
+        select { background: #000; }
+        .invalid { background: rgba(255,0,0,0.4) !important; }
+        tr.drag-over { background: rgba(255,255,255,0.15); }
+        tr.dragging { opacity: 0.5; background: rgba(0,255,0,0.2); }
+        input[type=range] { width: 200px; margin: 10px 0; }
+        .slider-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        @media (max-width: 768px) {
+            .settings-button { font-size: 3.5vw; padding: 12px 20px; }
+            .settings-panel[open] { font-size: 2.4vw; padding: 16px; }
+            table, th, td { font-size: 2.6vw; }
+            input[type=number], input[type=text], select { width: 70px; }
+            .settings-tooltip { font-size: 2.8vw; padding: 12px; top: 70px; left: 12px; }
+        }
+
+        @keyframes levelUpFlash {
+            0% { color: var(--text-gold); text-shadow: 0 0 10px var(--text-gold); }
+            50% { color: #ffeb3b; text-shadow: 0 0 30px #ffeb3b, 0 0 40px #ffeb3b; }
+            100% { color: var(--text-gold); text-shadow: 0 0 10px var(--text-gold); }
+        }
+        .level-up {
+            animation: levelUpFlash 1.5s ease-in-out;
+        }
+    </style>
+</head>
+<body aria-label="Poker Tournament Timer">
+    <div class="main-container" role="main">
+        <div id="timer" aria-live="polite" aria-label="Remaining time in current level">20:00</div>
+        <div id="breakMessage" class="break-message" style="display:none;" aria-live="assertive">
+            Hit The Space Bar<br>to Start Next Blind Level
+        </div>
+        <div class="blinds" id="blinds" aria-label="Current blinds"></div>
+        <div class="next" id="nextBlinds" aria-label="Next blinds or break"></div>
+        <div class="timer-row" id="timerRow" aria-label="Additional countdown timers">
+            <div class="timer-item" id="lunchCountdown" style="display:none">Dinner In: <span id="lunchTime" aria-label="Time until dinner break">00:00:00</span></div>
+            <div class="timer-item" id="rebuyCountdown" style="display:none">Last Rebuy In: <span id="rebuyTime" aria-label="Time until last rebuy">00:00:00</span></div>
+            <div class="timer-item" id="elapsedTime" style="display:none">Elapsed: <span id="elapsedSpan" aria-label="Tournament elapsed time">00:00:00</span></div>
+        </div>
+    </div>
+    <img id="logo" src="logo.png?v=20251227" alt="Tournament Logo">
+
+    <div class="top-right-controls" aria-label="Timer controls">
+        <div class="nav-row">
+            <button class="prev icon-btn" onclick="previousLevel()" aria-label="Previous level">⏪</button>
+            <button class="pause icon-btn" id="pauseBtn" onclick="togglePause()" aria-label="Pause or play timer">▶</button>
+            <button class="icon-btn" onclick="nextLevel()" aria-label="Next level">⏩</button>
+        </div>
+    </div>
+
+    <div class="bottom-right-modes" aria-label="Display modes">
+        <button id="fullscreenBtn" onclick="toggleFullscreen()" aria-label="Toggle fullscreen">⛶</button>
+        <button id="tvModeBtn" onclick="toggleTVMode()" aria-label="Toggle TV mode">🖥️</button>
+    </div>
+
+    <div class="settings-panel" id="settingsPanel">
+        <div class="settings-button" id="settingsButton" aria-label="Open settings menu">⚙️</div>
+        <div class="settings-tooltip" aria-hidden="true">
+            <strong>Keyboard Shortcuts</strong><br>
+            Space / Enter ▶ Pause / Play<br>
+            ← / P   Previous Level<br>
+            → / N   Next Level<br>
+            + / =   +1 minute<br>
+            - / _   -1 minute<br>
+            F    Toggle Fullscreen<br>
+            T    Toggle TV Mode<br>
+            Esc    Exit Fullscreen & TV Mode
+        </div>
+
+        <details id="settingsDetails">
+            <summary style="display:none;"></summary>
+
+            <div class="settings-group">
+                <details>
+                    <summary>Manual Timer Adjustment</summary>
+                    <div class="settings-group">
+                        <label>Set Timer Manually (e.g. 10, 1.5, or 05:30)</label>
+                        <input type="text" id="manualTimeInput" placeholder="10" style="width:120px;padding:6px" aria-label="Manual time input">
+                        <button onclick="setManualTime()">Apply</button>
+                    </div>
+                    <div class="settings-group" style="text-align:center;">
+                        <button onclick="addTime(-60)">−1 min</button>
+                        <button onclick="addTime(60)">+1 min</button>
+                    </div>
+                </details>
+            </div>
+
+            <div class="settings-group">
+                <details>
+                    <summary>Blind Structure Editor</summary>
+                    <div class="settings-group">
+                        <label>Load Saved Structure:</label>
+                        <select id="savedStructuresSelect" aria-label="Saved structures dropdown"></select>
+                        <button onclick="loadSelectedStructure()">Load</button>
+                        <button onclick="deleteSelectedStructure()">Delete</button>
+                    </div>
+                    <div class="settings-group">
+                        <button onclick="addBlindLevel()">+ Add Blind Level</button>
+                        <button onclick="addBreakLevel()">+ Add Break</button>
+                        <button onclick="generateFullStructure()">Generate Full Structure</button>
+                    </div>
+                    <div class="settings-group" style="max-height:350px;overflow-y:auto;">
+                        <table id="structureTable" aria-label="Blind structure table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Type</th>
+                                    <th>Small Blind</th>
+                                    <th>Big Blind</th>
+                                    <th>Duration (min)</th>
+                                    <th>Break Name</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="structureTbody"></tbody>
+                        </table>
+                    </div>
+                    <div class="settings-group">
+                        <button onclick="exportStructure()">Export Structure (JSON)</button>
+                        <input type="file" id="importFile" accept=".json" style="display:none;">
+                        <button onclick="document.getElementById('importFile').click()">Import Structure</button>
+                    </div>
+                    <div class="settings-group" style="text-align:center;">
+                        <input type="text" id="structureNameInput" placeholder="Structure name (e.g. Home Game)" style="width:220px;padding:6px;" aria-label="Structure name input">
+                        <button onclick="saveCurrentStructure()">Save Structure</button>
+                    </div>
+                </details>
+            </div>
+
+            <div class="settings-group">
+                <details>
+                    <summary>Appearance & Sizes</summary>
+                    <div class="settings-group">
+                        <div class="slider-row">
+                            <label>Timer Size: <span id="timerSizeValue">20</span>vw</label>
+                            <input type="range" id="timerSizeSlider" min="12" max="35" value="20" step="1" aria-label="Timer size slider">
+                        </div>
+                        <div class="slider-row">
+                            <label>Blinds Text Size: <span id="blindsSizeValue">5</span>vw</label>
+                            <input type="range" id="blindsSizeSlider" min="3" max="10" value="5" step="0.5" aria-label="Blinds text size slider">
+                        </div>
+                        <div class="slider-row">
+                            <label>Next Blinds Size: <span id="nextSizeValue">2.6</span>vw</label>
+                            <input type="range" id="nextSizeSlider" min="1.5" max="5" value="2.6" step="0.2" aria-label="Next blinds size slider">
+                        </div>
+                        <div class="slider-row">
+                            <label>Countdowns Size: <span id="countdownSizeValue">2.6</span>vw</label>
+                            <input type="range" id="countdownSizeSlider" min="1.5" max="5" value="2.6" step="0.2" aria-label="Countdowns size slider">
+                        </div>
+                        <div class="slider-row">
+                            <label>Break Message Size: <span id="breakMsgSizeValue">4</span>vw</label>
+                            <input type="range" id="breakMsgSizeSlider" min="2" max="8" value="4" step="0.5" aria-label="Break message size slider">
+                        </div>
+                        <div class="slider-row">
+                            <label>Logo Size (%): <span id="logoSizeValue">100</span>%</label>
+                            <input type="range" id="logoSizeSlider" min="50" max="200" value="100" step="5" aria-label="Logo size slider">
+                        </div>
+                    </div>
+                </details>
+            </div>
+
+            <div class="settings-group">
+                <details>
+                    <summary>Display Options</summary>
+                    <label><input type="checkbox" id="genericMode"> Generic mode (solid colour background, no logo)</label>
+                    <label><input type="checkbox" id="noLogoMode"> Hide logo even with image background</label>
+                    <div class="settings-group">
+                        <strong>TV Resolution Presets</strong><br>
+                        <button onclick="setTVPreset('4k')">4K / Large TV</button>
+                        <button onclick="setTVPreset('1080p')">1080p / Medium TV</button>
+                        <button onclick="setTVPreset('720p')">720p / Small TV</button>
+                    </div>
+                </details>
+            </div>
+
+            <div class="settings-group">
+                <details>
+                    <summary>Additional Timers</summary>
+                    <label><input type="checkbox" id="showElapsed"> Show Elapsed Time on main screen</label>
+                    <label><input type="checkbox" id="showRebuyCountdown" checked> Show Last Rebuy countdown on main screen</label>
+                    <label><input type="checkbox" id="showDinnerCountdown" checked> Show Dinner countdown on main screen</label>
+                </details>
+            </div>
+
+            <div class="settings-group">
+                <details>
+                    <summary>Theme & Accessibility</summary>
+                    <label><input type="checkbox" id="lightMode"> Light Mode</label>
+                    <label><input type="checkbox" id="highContrastMode"> High Contrast Mode</label>
+                </details>
+            </div>
+
+            <div class="settings-group">
+                <details>
+                    <summary>Mobile Use (Offline)</summary>
+                    <p style="font-size:0.9em; margin:0.5em 0;">To use this timer as a standalone app on your phone (even offline):</p>
+                    <ol style="text-align:left; font-size:0.9em; margin:0.5em 1em; padding-left:1.2em;">
+                        <li>Open this file in your mobile browser</li>
+                        <li>Tap the share/menu button</li>
+                        <li>Select "Add to Home Screen" (iOS) or "Install" / "Add to Home screen" (Android)</li>
+                    </ol>
+                    <p style="font-size:0.9em; margin-top:1em;">It will then appear as an app icon and work completely offline.</p>
+                </details>
+            </div>
+
+            <div class="settings-group">
+                <details>
+                    <summary>Sounds</summary>
+                    <div class="settings-group">
+                        <label>Warning Sound (1 min left)</label>
+                        <input type="file" id="warningUpload" accept="audio/*">
+                        <button onclick="testSound('warning')">Test</button>
+                    </div>
+                    <div class="settings-group">
+                        <label>End / Countdown Sound</label>
+                        <input type="file" id="endUpload" accept="audio/*">
+                        <button onclick="testSound('end')">Test</button>
+                    </div>
+                    <div class="settings-group">
+                        <label>Blinds Up Sound</label>
+                        <input type="file" id="blindsUpUpload" accept="audio/*">
+                        <button onclick="testSound('blindsUp')">Test</button>
+                    </div>
+                </details>
+            </div>
+
+            <div class="settings-group">
+                <button onclick="restoreDefaults()">♻️ Restore Defaults</button>
+            </div>
+        </details>
+    </div>
+
+    <audio id="warningSound" preload="none" src="warning.mp3"></audio>
+    <audio id="endSound" preload="none" src="end.mp3"></audio>
+    <audio id="blindsUpSound" preload="none" src="blinds-up.mp3"></audio>
+
+    <script>
+        function debounce(fn, delay) {
+            let timeout;
+            return function (...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => fn.apply(this, args), delay);
+            };
+        }
+
+        const state = {
+            levels: [],
+            idx: 0,
+            timeLeft: 0,
+            paused: true,
+            last: performance.now(),
+            showRebuyCountdown: true,
+            showDinnerCountdown: true,
+            showElapsed: false,
+            totalElapsed: 0,
+            tournamentStarted: false,
+            tournamentStartTimestamp: 0,
+            genericMode: false,
+            noLogoMode: false,
+            timerSize: 20,
+            blindsSize: 5,
+            nextSize: 2.6,
+            countdownSize: 2.6,
+            breakMsgSize: 4,
+            logoSizePercent: 100,
+            previousBlinds: null
+        };
+
+        const els = {
+            timer: document.getElementById("timer"),
+            breakMessage: document.getElementById("breakMessage"),
+            blinds: document.getElementById("blinds"),
+            nextBlinds: document.getElementById("nextBlinds"),
+            lunchCountdown: document.getElementById("lunchCountdown"),
+            lunchTime: document.getElementById("lunchTime"),
+            rebuyCountdown: document.getElementById("rebuyCountdown"),
+            rebuyTime: document.getElementById("rebuyTime"),
+            elapsedTime: document.getElementById("elapsedTime"),
+            elapsedSpan: document.getElementById("elapsedSpan"),
+            pauseBtn: document.getElementById("pauseBtn"),
+            structureTbody: document.getElementById("structureTbody"),
+            savedStructuresSelect: document.getElementById("savedStructuresSelect"),
+            structureNameInput: document.getElementById("structureNameInput"),
+            importFile: document.getElementById("importFile"),
+            manualTimeInput: document.getElementById("manualTimeInput"),
+            genericMode: document.getElementById("genericMode"),
+            noLogoMode: document.getElementById("noLogoMode"),
+            showElapsed: document.getElementById("showElapsed"),
+            showRebuyCountdown: document.getElementById("showRebuyCountdown"),
+            showDinnerCountdown: document.getElementById("showDinnerCountdown"),
+            warningSound: document.getElementById("warningSound"),
+            endSound: document.getElementById("endSound"),
+            blindsUpSound: document.getElementById("blindsUpSound"),
+            warningUpload: document.getElementById("warningUpload"),
+            endUpload: document.getElementById("endUpload"),
+            blindsUpUpload: document.getElementById("blindsUpUpload"),
+            logo: document.getElementById("logo"),
+            timerSizeSlider: document.getElementById("timerSizeSlider"),
+            timerSizeValue: document.getElementById("timerSizeValue"),
+            blindsSizeSlider: document.getElementById("blindsSizeSlider"),
+            blindsSizeValue: document.getElementById("blindsSizeValue"),
+            nextSizeSlider: document.getElementById("nextSizeSlider"),
+            nextSizeValue: document.getElementById("nextSizeValue"),
+            countdownSizeSlider: document.getElementById("countdownSizeSlider"),
+            countdownSizeValue: document.getElementById("countdownSizeValue"),
+            breakMsgSizeSlider: document.getElementById("breakMsgSizeSlider"),
+            breakMsgSizeValue: document.getElementById("breakMsgSizeValue"),
+            logoSizeSlider: document.getElementById("logoSizeSlider"),
+            logoSizeValue: document.getElementById("logoSizeValue"),
+            timerRow: document.getElementById("timerRow")
+        };
+
+        const settingsButton = document.getElementById('settingsButton');
+        const settingsDetails = document.getElementById('settingsDetails');
+        const tooltip = document.querySelector('.settings-tooltip');
+
+        settingsButton.addEventListener('click', () => {
+            settingsDetails.open = !settingsDetails.open;
+        });
+
+        settingsButton.addEventListener('mouseenter', () => {
+            tooltip.style.opacity = '1';
+            tooltip.style.visibility = 'visible';
+        });
+
+        settingsButton.addEventListener('mouseleave', () => {
+            tooltip.style.opacity = '0';
+            tooltip.style.visibility = 'hidden';
+        });
+
+        document.querySelectorAll('#settingsDetails > .settings-group > details').forEach((detail) => {
+            detail.addEventListener('toggle', () => {
+                if (detail.open) {
+                    document.querySelectorAll('#settingsDetails > .settings-group > details').forEach((other) => {
+                        if (other !== detail) other.open = false;
+                    });
+                }
+            });
+        });
+
+        function setTVPreset(preset) {
+            if (preset === '4k') {
+                els.timerSizeSlider.value = 28; els.blindsSizeSlider.value = 7; els.nextSizeSlider.value = 3.6;
+                els.countdownSizeSlider.value = 3.6; els.breakMsgSizeSlider.value = 5.5; els.logoSizeSlider.value = 140;
+            } else if (preset === '1080p') {
+                els.timerSizeSlider.value = 22; els.blindsSizeSlider.value = 5.5; els.nextSizeSlider.value = 3.0;
+                els.countdownSizeSlider.value = 3.0; els.breakMsgSizeSlider.value = 4.5; els.logoSizeSlider.value = 120;
+            } else if (preset === '720p') {
+                els.timerSizeSlider.value = 18; els.blindsSizeSlider.value = 4.5; els.nextSizeSlider.value = 2.4;
+                els.countdownSizeSlider.value = 2.4; els.breakMsgSizeSlider.value = 3.8; els.logoSizeSlider.value = 100;
+            }
+            updateTimerSize(); updateBlindsSize(); updateNextSize();
+            updateCountdownSize(); updateBreakMsgSize(); updateLogoSize();
+        }
+
+        function updateLogoSize() {
+            const percent = parseInt(els.logoSizeSlider.value);
+            state.logoSizePercent = percent;
+            const baseMaxHeight = 166;
+            const baseMaxWidth = 414;
+            els.logo.style.maxHeight = (baseMaxHeight * percent / 100) + "px";
+            els.logo.style.maxWidth = (baseMaxWidth * percent / 100) + "px";
+            els.logoSizeValue.textContent = percent;
+            localStorage.setItem("poker_logoSizePercent", percent);
+        }
+        els.logoSizeSlider.addEventListener("input", debounce(updateLogoSize, 100));
+
+        function updateTimerSize() {
+            const size = els.timerSizeSlider.value;
+            state.timerSize = parseFloat(size);
+            els.timer.style.fontSize = size + "vw";
+            els.timerSizeValue.textContent = size;
+            localStorage.setItem("poker_timerSize", size);
+        }
+        els.timerSizeSlider.addEventListener("input", debounce(updateTimerSize, 100));
+
+        function updateBlindsSize() {
+            const size = els.blindsSizeSlider.value;
+            state.blindsSize = parseFloat(size);
+            els.blinds.style.fontSize = size + "vw";
+            els.blindsSizeValue.textContent = size;
+            localStorage.setItem("poker_blindsSize", size);
+        }
+        els.blindsSizeSlider.addEventListener("input", debounce(updateBlindsSize, 100));
+
+        function updateNextSize() {
+            const size = els.nextSizeSlider.value;
+            state.nextSize = parseFloat(size);
+            els.nextBlinds.style.fontSize = size + "vw";
+            els.nextSizeValue.textContent = size;
+            localStorage.setItem("poker_nextSize", size);
+        }
+        els.nextSizeSlider.addEventListener("input", debounce(updateNextSize, 100));
+
+        function updateCountdownSize() {
+            const size = els.countdownSizeSlider.value;
+            state.countdownSize = parseFloat(size);
+            els.timerRow.style.fontSize = size + "vw";
+            els.countdownSizeValue.textContent = size;
+            localStorage.setItem("poker_countdownSize", size);
+        }
+        els.countdownSizeSlider.addEventListener("input", debounce(updateCountdownSize, 100));
+
+        function updateBreakMsgSize() {
+            const size = els.breakMsgSizeSlider.value;
+            state.breakMsgSize = parseFloat(size);
+            els.breakMessage.style.fontSize = size + "vw";
+            els.breakMsgSizeValue.textContent = size;
+            localStorage.setItem("poker_breakMsgSize", size);
+        }
+        els.breakMsgSizeSlider.addEventListener("input", debounce(updateBreakMsgSize, 100));
+
+        function setManualTime() {
+            const input = els.manualTimeInput.value.trim();
+            if (!input) return;
+            let seconds = 0;
+            if (input.includes(':')) {
+                const parts = input.split(':');
+                if (parts.length === 2) {
+                    seconds = (parseInt(parts[0]) || 0) * 60 + (parseInt(parts[1]) || 0);
+                }
+            } else if (input.includes('.')) {
+                seconds = Math.round(parseFloat(input) * 60);
+            } else {
+                seconds = parseInt(input) * 60 || 0;
+            }
+            if (seconds > 0) {
+                state.timeLeft = seconds;
+                updateDisplay();
+                els.manualTimeInput.value = '';
+            } else {
+                alert("Invalid format. Use: 10, 1.5, or 05:30");
+            }
+        }
+
+        function testSound(type) {
+            const audio = type === 'warning' ? els.warningSound :
+                          type === 'end' ? els.endSound : els.blindsUpSound;
+            audio.play().catch(() => {});
+        }
+
+        els.warningUpload.addEventListener('change', e => { if (e.target.files[0]) els.warningSound.src = URL.createObjectURL(e.target.files[0]); });
+        els.endUpload.addEventListener('change', e => { if (e.target.files[0]) els.endSound.src = URL.createObjectURL(e.target.files[0]); });
+        els.blindsUpUpload.addEventListener('change', e => { if (e.target.files[0]) els.blindsUpSound.src = URL.createObjectURL(e.target.files[0]); });
+
+        els.genericMode.addEventListener('change', () => {
+            state.genericMode = els.genericMode.checked;
+            document.body.classList.toggle('generic-mode', state.genericMode);
+            localStorage.setItem("poker_genericMode", state.genericMode);
+        });
+
+        els.noLogoMode.addEventListener('change', () => {
+            state.noLogoMode = els.noLogoMode.checked;
+            document.body.classList.toggle('no-logo', state.noLogoMode);
+            localStorage.setItem("poker_noLogoMode", state.noLogoMode);
+        });
+
+        els.showElapsed.addEventListener('change', () => { state.showElapsed = els.showElapsed.checked; updateDisplay(); localStorage.setItem("poker_showElapsed", state.showElapsed); });
+        els.showRebuyCountdown.addEventListener('change', () => { state.showRebuyCountdown = els.showRebuyCountdown.checked; updateDisplay(); localStorage.setItem("poker_showRebuyCountdown", state.showRebuyCountdown); });
+        els.showDinnerCountdown.addEventListener('change', () => { state.showDinnerCountdown = els.showDinnerCountdown.checked; updateDisplay(); localStorage.setItem("poker_showDinnerCountdown", state.showDinnerCountdown); });
+
+        // Theme toggles
+        document.getElementById('lightMode').addEventListener('change', e => {
+            document.body.classList.toggle('light-mode', e.target.checked);
+            if (e.target.checked) document.body.classList.remove('high-contrast');
+            localStorage.setItem('poker_lightMode', e.target.checked);
+        });
+
+        document.getElementById('highContrastMode').addEventListener('change', e => {
+            document.body.classList.toggle('high-contrast', e.target.checked);
+            if (e.target.checked) document.body.classList.remove('light-mode');
+            localStorage.setItem('poker_highContrast', e.target.checked);
+        });
+
+        function generateFullStructure() {
+            state.levels = [
+                {type:"blind",sb:25,bb:50,duration:20},
+                {type:"blind",sb:50,bb:100,duration:20},
+                {type:"blind",sb:100,bb:200,duration:20},
+                {type:"blind",sb:200,bb:400,duration:20},
+                {type:"blind",sb:300,bb:600,duration:20},
+                {type:"break",txt:"DINNER BREAK"},
+                {type:"blind",sb:400,bb:800,duration:20},
+                {type:"break",txt:"CHIP UP & ADD-ON BREAK"},
+                {type:"blind",sb:500,bb:1000,duration:15},
+                {type:"blind",sb:1000,bb:2000,duration:15},
+                {type:"blind",sb:2000,bb:4000,duration:15},
+                {type:"blind",sb:3000,bb:6000,duration:15},
+                {type:"blind",sb:4000,bb:8000,duration:15},
+                {type:"blind",sb:5000,bb:10000,duration:15},
+                {type:"blind",sb:10000,bb:20000,duration:15},
+                {type:"blind",sb:20000,bb:40000,duration:15},
+                {type:"blind",sb:30000,bb:60000,duration:15},
+                {type:"blind",sb:40000,bb:80000,duration:15},
+                {type:"blind",sb:50000,bb:100000,duration:15},
+                {type:"blind",sb:60000,bb:120000,duration:15},
+                {type:"blind",sb:80000,bb:160000,duration:15},
+                {type:"blind",sb:100000,bb:200000,duration:15}
+            ];
+            renderTable();
+        }
+
+        function refreshSavedList() {
+            const saved = JSON.parse(localStorage.getItem("poker_saved_structures") || "{}");
+            els.savedStructuresSelect.innerHTML = "<option value=''>-- Select --</option>";
+            Object.keys(saved).forEach(name => {
+                const opt = document.createElement("option");
+                opt.value = name;
+                opt.textContent = name;
+                if (name === localStorage.getItem("poker_current_structure_name")) opt.selected = true;
+                els.savedStructuresSelect.appendChild(opt);
+            });
+        }
+
+        let draggedRow = null;
+        function makeRowsDraggable() {
+            const rows = els.structureTbody.querySelectorAll("tr");
+            rows.forEach(row => {
+                row.draggable = true;
+                row.addEventListener("dragstart", e => {
+                    draggedRow = row;
+                    row.classList.add("dragging");
+                    e.dataTransfer.effectAllowed = "move";
+                });
+                row.addEventListener("dragend", () => {
+                    row.classList.remove("dragging");
+                    draggedRow = null;
+                });
+                row.addEventListener("dragover", e => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "move";
+                    row.classList.add("drag-over");
+                });
+                row.addEventListener("dragleave", () => {
+                    row.classList.remove("drag-over");
+                });
+                row.addEventListener("drop", e => {
+                    e.preventDefault();
+                    row.classList.remove("drag-over");
+                    if (draggedRow && draggedRow !== row) {
+                        const allRows = Array.from(els.structureTbody.querySelectorAll("tr"));
+                        const fromIdx = allRows.indexOf(draggedRow);
+                        const toIdx = allRows.indexOf(row);
+                        if (fromIdx < toIdx) {
+                            els.structureTbody.insertBefore(draggedRow, row.nextSibling);
+                        } else {
+                            els.structureTbody.insertBefore(draggedRow, row);
+                        }
+                        const level = state.levels.splice(fromIdx, 1)[0];
+                        state.levels.splice(toIdx, 0, level);
+                        renderTable();
+                    }
+                });
+            });
+        }
+
+        function renderTable() {
+            els.structureTbody.innerHTML = "";
+            state.levels.forEach((level, i) => {
+                const row = document.createElement("tr");
+                row.innerHTML = `
+                    <td>${i + 1}</td>
+                    <td>
+                        <select onchange="updateLevel(${i}, 'type', this.value)">
+                            <option value="blind" ${level.type==='blind'?'selected':''}>Blind</option>
+                            <option value="break" ${level.type==='break'?'selected':''}>Break</option>
+                        </select>
+                    </td>
+                    <td><input type="number" value="${level.sb||''}" onchange="updateLevel(${i}, 'sb', +this.value)" ${level.type==='break'?'style="display:none"':''}></td>
+                    <td><input type="number" value="${level.bb||''}" onchange="updateLevel(${i}, 'bb', +this.value)" ${level.type==='break'?'style="display:none"':''}></td>
+                    <td><input type="number" min="1" value="${level.duration||20}" onchange="updateLevel(${i}, 'duration', +this.value)" ${level.type==='break'?'style="display:none"':''}></td>
+                    <td><input type="text" value="${level.txt||''}" onchange="updateLevel(${i}, 'txt', this.value)" ${level.type==='blind'?'style="display:none"':''}></td>
+                    <td>
+                        <button onclick="deleteLevel(${i})">×</button>
+                    </td>
+                `;
+                if (level.type === 'blind') {
+                    row.querySelectorAll("input")[0].addEventListener("input", e => {
+                        const sb = +e.target.value;
+                        if (!isNaN(sb)) row.querySelectorAll("input")[1].value = sb * 2;
+                    });
+                }
+                els.structureTbody.appendChild(row);
+            });
+            makeRowsDraggable();
+            refreshSavedList();
+        }
+
+        function updateLevel(i, key, value) {
+            if (key === 'type' && value === 'blind' && !state.levels[i].sb) {
+                state.levels[i].sb = 25;
+                state.levels[i].bb = 50;
+                state.levels[i].duration = 20;
+            }
+            state.levels[i][key] = value;
+            renderTable();
+            updateDisplay();
+        }
+
+        function addBlindLevel() {
+            const last = state.levels[state.levels.length - 1];
+            let sb = 25, bb = 50;
+            if (last && last.type === 'blind') {
+                sb = last.bb;
+                bb = last.bb * 2;
+            }
+            state.levels.push({ type: "blind", sb, bb, duration: 20 });
+            renderTable();
+        }
+
+        function addBreakLevel() {
+            state.levels.push({ type: "break", txt: "BREAK" });
+            renderTable();
+        }
+
+        function deleteLevel(i) {
+            state.levels.splice(i, 1);
+            renderTable();
+        }
+
+        function saveCurrentStructure() {
+            const name = els.structureNameInput.value.trim() || "Unnamed Structure";
+            const saved = JSON.parse(localStorage.getItem("poker_saved_structures") || "{}");
+            saved[name] = state.levels;
+            localStorage.setItem("poker_saved_structures", JSON.stringify(saved));
+            localStorage.setItem("poker_current_structure_name", name);
+            alert('Structure "' + name + '" saved!');
+            refreshSavedList();
+        }
+
+        function loadSelectedStructure() {
+            const name = els.savedStructuresSelect.value;
+            if (name) {
+                const saved = JSON.parse(localStorage.getItem("poker_saved_structures") || "{}");
+                if (saved[name]) {
+                    state.levels = saved[name];
+                    localStorage.setItem("poker_current_structure_name", name);
+                    renderTable();
+                    updateDisplay();
+                }
+            }
+        }
+
+        function deleteSelectedStructure() {
+            const name = els.savedStructuresSelect.value;
+            if (!name || !confirm("Delete \"" + name + "\"?")) return;
+            const saved = JSON.parse(localStorage.getItem("poker_saved_structures") || "{}");
+            delete saved[name];
+            localStorage.setItem("poker_saved_structures", JSON.stringify(saved));
+            if (localStorage.getItem("poker_current_structure_name") === name) {
+                localStorage.removeItem("poker_current_structure_name");
+            }
+            refreshSavedList();
+        }
+
+        function exportStructure() {
+            const data = JSON.stringify(state.levels, null, 2);
+            const blob = new Blob([data], {type: "application/json"});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "poker-structure.json";
+            a.click();
+        }
+
+        els.importFile.addEventListener('change', e => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = ev => {
+                try {
+                    state.levels = JSON.parse(ev.target.result);
+                    renderTable();
+                    alert("Structure imported!");
+                } catch (err) {
+                    alert("Invalid JSON file");
+                }
+            };
+            reader.readAsText(file);
+            e.target.value = "";
+        });
+
+        function sumBlindDurationsTo(targetIdx) {
+            let sum = 0;
+            for (let i = state.idx; i < targetIdx; i++) {
+                if (state.levels[i].type === "blind") {
+                    sum += dur(state.levels[i]);
+                }
+            }
+            return sum;
+        }
+
+        function updateDisplay() {
+            if (state.levels.length === 0 || state.idx >= state.levels.length) return;
+            const c = state.levels[state.idx];
+            const n = state.levels[state.idx + 1];
+            els.timer.textContent = mmss(state.timeLeft);
+            els.timer.style.color = state.timeLeft <= 60 ? "#ff3b3b" : "var(--text-gold)";
+            els.elapsedSpan.textContent = hhmmss(state.totalElapsed);
+
+            const dinnerLevelIdx = state.levels.findIndex(l => l.type === "blind" && l.sb === 300 && l.bb === 600);
+            const isBeforeOrDuringDinnerLevel = dinnerLevelIdx !== -1 && state.idx <= dinnerLevelIdx;
+
+            if (state.showDinnerCountdown && isBeforeOrDuringDinnerLevel && c.type !== "break") {
+                let tillDinnerEnd = 0;
+                if (state.idx < dinnerLevelIdx) {
+                    tillDinnerEnd = sumBlindDurationsTo(dinnerLevelIdx) + state.timeLeft;
+                } else if (state.idx === dinnerLevelIdx) {
+                    tillDinnerEnd = state.timeLeft;
+                }
+                els.lunchTime.textContent = hhmmss(tillDinnerEnd);
+                els.lunchCountdown.style.display = "block";
+            } else {
+                els.lunchCountdown.style.display = "none";
+            }
+
+            const rebuyLevelIdx = state.levels.findIndex(l => l.type === "blind" && l.sb === 400 && l.bb === 800);
+            const isBeforeOrDuringRebuyLevel = rebuyLevelIdx !== -1 && state.idx <= rebuyLevelIdx;
+
+            if (state.showRebuyCountdown && isBeforeOrDuringRebuyLevel && c.type !== "break") {
+                let tillRebuyEnd = 0;
+                if (state.idx < rebuyLevelIdx) {
+                    tillRebuyEnd = sumBlindDurationsTo(rebuyLevelIdx) + state.timeLeft;
+                } else if (state.idx === rebuyLevelIdx) {
+                    tillRebuyEnd = state.timeLeft;
+                }
+                els.rebuyTime.textContent = hhmmss(tillRebuyEnd);
+                els.rebuyCountdown.style.display = "block";
+            } else {
+                els.rebuyCountdown.style.display = "none";
+            }
+
+            els.elapsedTime.style.display = state.showElapsed ? "block" : "none";
+
+            if (c.type === "break") {
+                els.blinds.textContent = c.txt || "BREAK";
+                els.nextBlinds.textContent = n?.type === "blind" ? "Next: " + n.sb + " / " + n.bb : "";
+                document.body.classList.add("break");
+                els.timer.style.display = "none";
+                els.breakMessage.style.display = "block";
+            } else {
+                els.blinds.textContent = "Blinds: " + c.sb + " / " + c.bb;
+                els.nextBlinds.textContent = n ? (n.type === "break" ? "Next: " + (n.txt || "BREAK") : "Next: " + n.sb + " / " + n.bb) : "";
+                document.body.classList.remove("break");
+                els.timer.style.display = "block";
+                els.breakMessage.style.display = "none";
+            }
+
+            if (state.previousBlinds !== null && c.type === "blind") {
+                const currentBlinds = c.sb + "/" + c.bb;
+                if (currentBlinds !== state.previousBlinds) {
+                    els.blinds.classList.add("level-up");
+                    setTimeout(() => {
+                        els.blinds.classList.remove("level-up");
+                    }, 1500);
+                }
+            }
+            state.previousBlinds = c.type === "blind" ? c.sb + "/" + c.bb : null;
+        }
+
+        const mmss = s => `${String(Math.floor(Math.max(0,s)/60)).padStart(2,'0')}:${String(Math.floor(Math.max(0,s)%60)).padStart(2,'0')}`;
+        const hhmmss = s => {
+            s = Math.max(0, Math.floor(s));
+            const h = Math.floor(s / 3600);
+            const m = Math.floor((s % 3600) / 60);
+            const sec = s % 60;
+            return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+        };
+        const dur = l => l.type === "blind" ? (l.duration || 20) * 60 : 0;
+
+        function startLevel() {
+            if (state.levels.length === 0) return;
+            state.timeLeft = dur(state.levels[state.idx]);
+            if (state.levels[state.idx].type === "break") {
+                state.paused = true;
+                els.pauseBtn.textContent = "▶";
+            }
+            updateDisplay();
+        }
+
+        function nextLevel() {
+            if (state.idx < state.levels.length - 1) {
+                state.idx++;
+                startLevel();
+            }
+        }
+
+        function previousLevel() {
+            if (state.idx > 0) {
+                state.idx--;
+                startLevel();
+            }
+        }
+
+        function togglePause() {
+            state.paused = !state.paused;
+            if (!state.paused && !state.tournamentStarted) {
+                state.tournamentStarted = true;
+                state.tournamentStartTimestamp = performance.now();
+            }
+            els.pauseBtn.textContent = state.paused ? "▶" : "❚❚";
+        }
+
+        function addTime(sec) {
+            state.timeLeft += sec;
+            updateDisplay();
+        }
+
+        let lastUpdate = 0;
+        function loop(now) {
+            if (!state.last) state.last = now;
+            const dt = (now - state.last) / 1000;
+            state.last = now;
+            if (state.tournamentStarted) state.totalElapsed = (now - state.tournamentStartTimestamp) / 1000;
+            if (!state.paused) {
+                state.timeLeft -= dt;
+                if (Math.floor(state.timeLeft + dt) === 60 && Math.floor(state.timeLeft) <= 60) els.warningSound.play().catch(() => {});
+                if (state.timeLeft <= 5 && state.timeLeft > 0) {
+                    const cur = Math.floor(state.timeLeft);
+                    const prev = Math.floor(state.timeLeft + dt);
+                    if (cur < prev) els.endSound.play().catch(() => {});
+                }
+                if (state.timeLeft <= 0) {
+                    els.blindsUpSound.play().catch(() => {});
+                    nextLevel();
+                }
+            }
+            if (now - lastUpdate >= 1000) {
+                updateDisplay();
+                lastUpdate = now;
+            }
+            requestAnimationFrame(loop);
+        }
+
+        function toggleFullscreen() {
+            if (document.fullscreenElement) document.exitFullscreen();
+            else document.documentElement.requestFullscreen();
+        }
+
+        function toggleTVMode() {
+            const isTV = document.body.classList.toggle("tv-mode");
+            if (isTV) document.documentElement.requestFullscreen();
+            else if (document.fullscreenElement) document.exitFullscreen();
+        }
+
+        document.addEventListener('keydown', e => {
+            if (e.target.closest('input, textarea, select')) return;
+            switch (e.key.toLowerCase()) {
+                case ' ': case 'enter': e.preventDefault(); togglePause(); break;
+                case 'arrowleft': case 'p': e.preventDefault(); previousLevel(); break;
+                case 'arrowright': case 'n': e.preventDefault(); nextLevel(); break;
+                case '+': case '=': e.preventDefault(); addTime(60); break;
+                case '-': case '_': e.preventDefault(); addTime(-60); break;
+                case 'f': e.preventDefault(); toggleFullscreen(); break;
+                case 't': e.preventDefault(); toggleTVMode(); break;
+                case 'escape':
+                    e.preventDefault();
+                    if (document.fullscreenElement) document.exitFullscreen();
+                    if (document.body.classList.contains('tv-mode')) document.body.classList.remove('tv-mode');
+                    break;
+            }
+        });
+
+        function restoreDefaults() {
+            if (!confirm("Restore all defaults?")) return;
+            localStorage.clear();
+            generateFullStructure();
+            state.genericMode = state.noLogoMode = state.showElapsed = false;
+            state.showRebuyCountdown = state.showDinnerCountdown = true;
+            els.genericMode.checked = els.noLogoMode.checked = els.showElapsed.checked = false;
+            els.showRebuyCountdown.checked = els.showDinnerCountdown.checked = true;
+            document.body.className = "";
+            els.warningSound.src = "warning.mp3";
+            els.endSound.src = "end.mp3";
+            els.blindsUpSound.src = "blinds-up.mp3";
+            els.timerSizeSlider.value = 20; updateTimerSize();
+            els.blindsSizeSlider.value = 5; updateBlindsSize();
+            els.nextSizeSlider.value = 2.6; updateNextSize();
+            els.countdownSizeSlider.value = 2.6; updateCountdownSize();
+            els.breakMsgSizeSlider.value = 4; updateBreakMsgSize();
+            els.logoSizeSlider.value = 100; updateLogoSize();
+            state.idx = 0;
+            updateDisplay();
+        }
+
+        // INITIALIZATION
+        generateFullStructure();
+        renderTable();
+
+        const savedLogoSize = localStorage.getItem("poker_logoSizePercent");
+        if (savedLogoSize) { els.logoSizeSlider.value = savedLogoSize; updateLogoSize(); }
+        const savedTimerSize = localStorage.getItem("poker_timerSize");
+        if (savedTimerSize) { els.timerSizeSlider.value = savedTimerSize; updateTimerSize(); }
+        const savedBlindsSize = localStorage.getItem("poker_blindsSize");
+        if (savedBlindsSize) { els.blindsSizeSlider.value = savedBlindsSize; updateBlindsSize(); }
+        const savedNextSize = localStorage.getItem("poker_nextSize");
+        if (savedNextSize) { els.nextSizeSlider.value = savedNextSize; updateNextSize(); }
+        const savedCountdownSize = localStorage.getItem("poker_countdownSize");
+        if (savedCountdownSize) { els.countdownSizeSlider.value = savedCountdownSize; updateCountdownSize(); }
+        const savedBreakMsgSize = localStorage.getItem("poker_breakMsgSize");
+        if (savedBreakMsgSize) { els.breakMsgSizeSlider.value = savedBreakMsgSize; updateBreakMsgSize(); }
+
+        els.genericMode.checked = state.genericMode = localStorage.getItem("poker_genericMode") === "true";
+        els.noLogoMode.checked = state.noLogoMode = localStorage.getItem("poker_noLogoMode") === "true";
+        els.showElapsed.checked = state.showElapsed = localStorage.getItem("poker_showElapsed") === "true";
+        els.showRebuyCountdown.checked = state.showRebuyCountdown = localStorage.getItem("poker_showRebuyCountdown") !== "false";
+        els.showDinnerCountdown.checked = state.showDinnerCountdown = localStorage.getItem("poker_showDinnerCountdown") !== "false";
+
+        document.body.classList.toggle('generic-mode', state.genericMode);
+        document.body.classList.toggle('no-logo', state.noLogoMode);
+
+        // Load theme preferences
+        if (localStorage.getItem('poker_lightMode') === 'true') {
+            document.body.classList.add('light-mode');
+            document.getElementById('lightMode').checked = true;
+        }
+        if (localStorage.getItem('poker_highContrast') === 'true') {
+            document.body.classList.add('high-contrast');
+            document.getElementById('highContrastMode').checked = true;
+        }
+
+        startLevel();
+        requestAnimationFrame(loop);
+    </script>
+</body>
+</html>
