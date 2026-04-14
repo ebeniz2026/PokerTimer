@@ -356,6 +356,43 @@
         .level-up {
             animation: levelUpFlash 1.5s ease-in-out;
         }
+
+        /* --- HIGH HAND STYLES --- */
+        #highHandContainer {
+            margin-top: 4vh;
+            width: 80%;
+            max-width: 900px;
+            text-align: center;
+        }
+        .high-hand-label {
+            font-size: 2vw;
+            color: var(--text-gold);
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        #highHandInput {
+            background: rgba(0,0,0,0.2);
+            border: 2px solid var(--button-bg);
+            border-radius: 12px;
+            color: #fff;
+            width: 100%;
+            padding: 15px;
+            text-align: center;
+            font-size: 3.5vw;
+            font-weight: bold;
+            outline: none;
+            box-sizing: border-box;
+            transition: border-color 0.3s;
+        }
+        #highHandInput:focus {
+            border-color: var(--text-gold);
+        }
+        body.light-mode .high-hand-label { color: var(--text-gold); }
+        body.light-mode #highHandInput { color: #000; background: rgba(0,0,0,0.05); border-color: rgba(0,0,0,0.2); }
+        body.high-contrast .high-hand-label { color: #ffff00; }
+        body.high-contrast #highHandInput { color: #ffff00; border-color: #ffff00; }
     </style>
 </head>
 <body aria-label="Poker Tournament Timer">
@@ -370,6 +407,11 @@
             <div class="timer-item" id="lunchCountdown" style="display:none">Dinner In: <span id="lunchTime" aria-label="Time until dinner break">00:00:00</span></div>
             <div class="timer-item" id="rebuyCountdown" style="display:none">Last Rebuy In: <span id="rebuyTime" aria-label="Time until last rebuy">00:00:00</span></div>
             <div class="timer-item" id="elapsedTime" style="display:none">Elapsed: <span id="elapsedSpan" aria-label="Tournament elapsed time">00:00:00</span></div>
+        </div>
+
+        <div id="highHandContainer">
+            <div class="high-hand-label">Current High Hand</div>
+            <input type="text" id="highHandInput" placeholder="..." aria-label="Enter Current High Hand">
         </div>
     </div>
     <img id="logo" src="Media/logo.png?v=20260103" alt="Tournament Logo">
@@ -472,7 +514,6 @@
                     </div>
                 </details>
             </div>
-            <!-- ======================== APPEARANCE & SIZES ======================== -->
             <div class="settings-group">
                 <details>
                     <summary>Appearance & Sizes</summary>
@@ -511,6 +552,7 @@
                             <label><input type="checkbox" id="autoHideCursor" checked> Auto-hide cursor after inactivity</label>
                             <label><input type="checkbox" id="genericMode"> Generic mode (solid colour background, no logo)</label>
                             <label><input type="checkbox" id="noLogoMode"> Hide logo even with image background</label>
+                            <label><input type="checkbox" id="showHighHand" checked> Show High Hand box</label>
                             <div class="settings-group tv-presets">
                                 <strong>TV Resolution Presets</strong><br>
                                 <button onclick="setTVPreset('4k')">4K / Large TV</button>
@@ -595,9 +637,8 @@
         function formatNumber(num) {
             return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
         }
-        // === Inactivity handling: cursor + controls fade ===
         let inactivityTimeout;
-        let cursorHideDelay = 5000; // ms
+        let cursorHideDelay = 5000;
         let autoHideCursorEnabled = true;
         function showAll() {
             document.body.classList.remove('cursor-hidden');
@@ -644,6 +685,7 @@
             tournamentStartTimestamp: 0,
             genericMode: false,
             noLogoMode: false,
+            showHighHand: true,
             timerSize: 20,
             blindsSize: 5,
             nextSize: 2.6,
@@ -676,6 +718,7 @@
             manualTimeInput: document.getElementById("manualTimeInput"),
             genericMode: document.getElementById("genericMode"),
             noLogoMode: document.getElementById("noLogoMode"),
+            showHighHand: document.getElementById("showHighHand"),
             showElapsed: document.getElementById("showElapsed"),
             showRebuyCountdown: document.getElementById("showRebuyCountdown"),
             showDinnerCountdown: document.getElementById("showDinnerCountdown"),
@@ -706,24 +749,33 @@
             lightMode: document.getElementById("lightMode"),
             highContrastMode: document.getElementById("highContrastMode"),
             enableEndPrompt: document.getElementById("enableEndPrompt"),
-            extraLevelsCount: document.getElementById("extraLevelsCount")
+            extraLevelsCount: document.getElementById("extraLevelsCount"),
+            highHandInput: document.getElementById("highHandInput"),
+            highHandContainer: document.getElementById("highHandContainer")
         };
-        // === Logo drag-and-drop functionality ===
+
+        function adjustHighHandFontSize() {
+            const input = els.highHandInput;
+            let fontSize = 3.5;
+            input.style.fontSize = fontSize + "vw";
+            while (input.scrollWidth > input.clientWidth && fontSize > 1) {
+                fontSize -= 0.1;
+                input.style.fontSize = fontSize + "vw";
+            }
+        }
+        els.highHandInput.addEventListener('input', adjustHighHandFontSize);
+
         let isDragging = false;
         let dragStart = { x: 0, y: 0 };
         function startLogoDrag(e) {
-            if (document.body.classList.contains('tv-mode') ||
-                document.body.classList.contains('generic-mode') ||
-                document.body.classList.contains('no-logo')) return;
+            if (document.body.classList.contains('tv-mode') || document.body.classList.contains('generic-mode') || document.body.classList.contains('no-logo')) return;
             isDragging = true;
             els.logo.classList.add('dragging');
             let clientX, clientY;
             if (e.type === 'mousedown') {
-                clientX = e.clientX;
-                clientY = e.clientY;
+                clientX = e.clientX; clientY = e.clientY;
             } else if (e.type === 'touchstart') {
-                clientX = e.touches[0].clientX;
-                clientY = e.touches[0].clientY;
+                clientX = e.touches[0].clientX; clientY = e.touches[0].clientY;
                 e.preventDefault();
             }
             const transform = window.getComputedStyle(els.logo).transform;
@@ -736,22 +788,14 @@
                     offsetY = values[5] || 0;
                 }
             }
-            dragStart = {
-                x: clientX - offsetX,
-                y: clientY - offsetY
-            };
+            dragStart = { x: clientX - offsetX, y: clientY - offsetY };
         }
         function dragLogo(e) {
             if (!isDragging) return;
             e.preventDefault();
             let clientX, clientY;
-            if (e.type === 'mousemove') {
-                clientX = e.clientX;
-                clientY = e.clientY;
-            } else if (e.type === 'touchmove') {
-                clientX = e.touches[0].clientX;
-                clientY = e.touches[0].clientY;
-            }
+            if (e.type === 'mousemove') { clientX = e.clientX; clientY = e.clientY; }
+            else if (e.type === 'touchmove') { clientX = e.touches[0].clientX; clientY = e.touches[0].clientY; }
             const offsetX = clientX - dragStart.x;
             const offsetY = clientY - dragStart.y;
             els.logo.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
@@ -759,10 +803,7 @@
             localStorage.setItem('poker_logoOffset', JSON.stringify(state.logoOffset));
         }
         function stopLogoDrag() {
-            if (isDragging) {
-                isDragging = false;
-                els.logo.classList.remove('dragging');
-            }
+            if (isDragging) { isDragging = false; els.logo.classList.remove('dragging'); }
         }
         els.logo.addEventListener('mousedown', startLogoDrag);
         els.logo.addEventListener('touchstart', startLogoDrag, { passive: false });
@@ -770,6 +811,7 @@
         document.addEventListener('touchmove', dragLogo, { passive: false });
         document.addEventListener('mouseup', stopLogoDrag);
         document.addEventListener('touchend', stopLogoDrag);
+
         els.autoHideCursor.addEventListener('change', () => {
             autoHideCursorEnabled = els.autoHideCursor.checked;
             state.autoHideCursor = autoHideCursorEnabled;
@@ -785,7 +827,7 @@
             startInactivityTimer();
         }
         els.cursorHideDelaySlider.addEventListener("input", debounce(updateCursorHideDelay, 100));
-        // Tournament End Behaviour handlers
+
         els.enableEndPrompt.addEventListener('change', () => {
             state.enableEndPrompt = els.enableEndPrompt.checked;
             localStorage.setItem("poker_enableEndPrompt", state.enableEndPrompt);
@@ -798,20 +840,14 @@
             state.extraLevelsCount = val;
             localStorage.setItem("poker_extraLevelsCount", val);
         });
+
         const settingsButton = document.getElementById('settingsButton');
         const settingsDetails = document.getElementById('settingsDetails');
         const tooltip = document.querySelector('.settings-tooltip');
-        settingsButton.addEventListener('click', () => {
-            settingsDetails.open = !settingsDetails.open;
-        });
-        settingsButton.addEventListener('mouseenter', () => {
-            tooltip.style.opacity = '1';
-            tooltip.style.visibility = 'visible';
-        });
-        settingsButton.addEventListener('mouseleave', () => {
-            tooltip.style.opacity = '0';
-            tooltip.style.visibility = 'hidden';
-        });
+        settingsButton.addEventListener('click', () => { settingsDetails.open = !settingsDetails.open; });
+        settingsButton.addEventListener('mouseenter', () => { tooltip.style.opacity = '1'; tooltip.style.visibility = 'visible'; });
+        settingsButton.addEventListener('mouseleave', () => { tooltip.style.opacity = '0'; tooltip.style.visibility = 'hidden'; });
+
         document.querySelectorAll('#settingsDetails > .settings-group > details').forEach((detail) => {
             detail.addEventListener('toggle', () => {
                 if (detail.open) {
@@ -821,7 +857,7 @@
                 }
             });
         });
-        // Theme radio button handling
+
         function applyTheme() {
             const isLight = els.lightMode.checked;
             const isHigh = els.highContrastMode.checked;
@@ -832,27 +868,14 @@
         }
         els.normalMode.addEventListener('change', () => {
             if (els.normalMode.checked) {
-                els.lightMode.checked = false;
-                els.highContrastMode.checked = false;
+                els.lightMode.checked = false; els.highContrastMode.checked = false;
                 document.body.classList.remove('light-mode', 'high-contrast');
-                localStorage.setItem('poker_lightMode', false);
-                localStorage.setItem('poker_highContrast', false);
+                localStorage.setItem('poker_lightMode', false); localStorage.setItem('poker_highContrast', false);
             }
         });
-        els.lightMode.addEventListener('change', () => {
-            if (els.lightMode.checked) {
-                els.normalMode.checked = false;
-                els.highContrastMode.checked = false;
-                applyTheme();
-            }
-        });
-        els.highContrastMode.addEventListener('change', () => {
-            if (els.highContrastMode.checked) {
-                els.normalMode.checked = false;
-                els.lightMode.checked = false;
-                applyTheme();
-            }
-        });
+        els.lightMode.addEventListener('change', () => { if (els.lightMode.checked) { els.normalMode.checked = false; els.highContrastMode.checked = false; applyTheme(); } });
+        els.highContrastMode.addEventListener('change', () => { if (els.highContrastMode.checked) { els.normalMode.checked = false; els.lightMode.checked = false; applyTheme(); } });
+
         function setTVPreset(preset) {
             if (preset === '4k') {
                 els.timerSizeSlider.value = 28; els.blindsSizeSlider.value = 7; els.nextSizeSlider.value = 3.6;
@@ -868,17 +891,17 @@
             updateCountdownSize(); updateBreakMsgSize(); updateLogoSize();
             startInactivityTimer();
         }
+
         function updateLogoSize() {
             const percent = parseInt(els.logoSizeSlider.value);
             state.logoSizePercent = percent;
-            const baseMaxHeight = 166;
-            const baseMaxWidth = 414;
-            els.logo.style.maxHeight = (baseMaxHeight * percent / 100) + "px";
-            els.logo.style.maxWidth = (baseMaxWidth * percent / 100) + "px";
+            els.logo.style.maxHeight = (166 * percent / 100) + "px";
+            els.logo.style.maxWidth = (414 * percent / 100) + "px";
             els.logoSizeValue.textContent = percent;
             localStorage.setItem("poker_logoSizePercent", percent);
         }
         els.logoSizeSlider.addEventListener("input", debounce(updateLogoSize, 100));
+
         function updateTimerSize() {
             const size = els.timerSizeSlider.value;
             state.timerSize = parseFloat(size);
@@ -887,6 +910,7 @@
             localStorage.setItem("poker_timerSize", size);
         }
         els.timerSizeSlider.addEventListener("input", debounce(updateTimerSize, 100));
+
         function updateBlindsSize() {
             const size = els.blindsSizeSlider.value;
             state.blindsSize = parseFloat(size);
@@ -895,6 +919,7 @@
             localStorage.setItem("poker_blindsSize", size);
         }
         els.blindsSizeSlider.addEventListener("input", debounce(updateBlindsSize, 100));
+
         function updateNextSize() {
             const size = els.nextSizeSlider.value;
             state.nextSize = parseFloat(size);
@@ -903,6 +928,7 @@
             localStorage.setItem("poker_nextSize", size);
         }
         els.nextSizeSlider.addEventListener("input", debounce(updateNextSize, 100));
+
         function updateCountdownSize() {
             const size = els.countdownSizeSlider.value;
             state.countdownSize = parseFloat(size);
@@ -911,6 +937,7 @@
             localStorage.setItem("poker_countdownSize", size);
         }
         els.countdownSizeSlider.addEventListener("input", debounce(updateCountdownSize, 100));
+
         function updateBreakMsgSize() {
             const size = els.breakMsgSizeSlider.value;
             state.breakMsgSize = parseFloat(size);
@@ -919,52 +946,42 @@
             localStorage.setItem("poker_breakMsgSize", size);
         }
         els.breakMsgSizeSlider.addEventListener("input", debounce(updateBreakMsgSize, 100));
+
         function saveAppearanceDefaults() {
             const defaults = {
-                timerSize: state.timerSize,
-                blindsSize: state.blindsSize,
-                nextSize: state.nextSize,
-                countdownSize: state.countdownSize,
-                breakMsgSize: state.breakMsgSize,
-                logoSizePercent: state.logoSizePercent,
-                cursorHideDelay: state.cursorHideDelay,
-                autoHideCursor: state.autoHideCursor,
-                genericMode: state.genericMode,
-                noLogoMode: state.noLogoMode
+                timerSize: state.timerSize, blindsSize: state.blindsSize, nextSize: state.nextSize,
+                countdownSize: state.countdownSize, breakMsgSize: state.breakMsgSize, logoSizePercent: state.logoSizePercent,
+                cursorHideDelay: state.cursorHideDelay, autoHideCursor: state.autoHideCursor, genericMode: state.genericMode,
+                noLogoMode: state.noLogoMode, showHighHand: state.showHighHand
             };
             localStorage.setItem('poker_appearance_defaults', JSON.stringify(defaults));
-            alert("Appearance settings saved as defaults! They will be applied on next page load.");
+            alert("Appearance settings saved as defaults!");
         }
+
         function setManualTime() {
             const input = els.manualTimeInput.value.trim();
             if (!input) return;
             let seconds = 0;
             if (input.includes(':')) {
                 const parts = input.split(':');
-                if (parts.length === 2) {
-                    seconds = (parseInt(parts[0]) || 0) * 60 + (parseInt(parts[1]) || 0);
-                }
+                if (parts.length === 2) seconds = (parseInt(parts[0]) || 0) * 60 + (parseInt(parts[1]) || 0);
             } else if (input.includes('.')) {
                 seconds = Math.round(parseFloat(input) * 60);
             } else {
                 seconds = parseInt(input) * 60 || 0;
             }
-            if (seconds > 0) {
-                state.timeLeft = seconds;
-                updateDisplay();
-                els.manualTimeInput.value = '';
-            } else {
-                alert("Invalid format. Use: 10, 1.5, or 05:30");
-            }
+            if (seconds > 0) { state.timeLeft = seconds; updateDisplay(); els.manualTimeInput.value = ''; }
+            else { alert("Invalid format. Use: 10, 1.5, or 05:30"); }
         }
+
         function testSound(type) {
-            const audio = type === 'warning' ? els.warningSound :
-                          type === 'end' ? els.endSound : els.blindsUpSound;
+            const audio = type === 'warning' ? els.warningSound : type === 'end' ? els.endSound : els.blindsUpSound;
             audio.play().catch(() => {});
         }
         els.warningUpload.addEventListener('change', e => { if (e.target.files[0]) els.warningSound.src = URL.createObjectURL(e.target.files[0]); });
         els.endUpload.addEventListener('change', e => { if (e.target.files[0]) els.endSound.src = URL.createObjectURL(e.target.files[0]); });
         els.blindsUpUpload.addEventListener('change', e => { if (e.target.files[0]) els.blindsUpSound.src = URL.createObjectURL(e.target.files[0]); });
+
         els.genericMode.addEventListener('change', () => {
             state.genericMode = els.genericMode.checked;
             document.body.classList.toggle('generic-mode', state.genericMode);
@@ -975,32 +992,27 @@
             document.body.classList.toggle('no-logo', state.noLogoMode);
             localStorage.setItem("poker_noLogoMode", state.noLogoMode);
         });
+
+        // --- TOGGLE HIGH HAND VISIBILITY ---
+        els.showHighHand.addEventListener('change', () => {
+            state.showHighHand = els.showHighHand.checked;
+            els.highHandContainer.style.display = state.showHighHand ? 'block' : 'none';
+            localStorage.setItem("poker_showHighHand", state.showHighHand);
+        });
+
         els.showElapsed.addEventListener('change', () => { state.showElapsed = els.showElapsed.checked; updateDisplay(); localStorage.setItem("poker_showElapsed", state.showElapsed); });
         els.showRebuyCountdown.addEventListener('change', () => { state.showRebuyCountdown = els.showRebuyCountdown.checked; updateDisplay(); localStorage.setItem("poker_showRebuyCountdown", state.showRebuyCountdown); });
         els.showDinnerCountdown.addEventListener('change', () => { state.showDinnerCountdown = els.showDinnerCountdown.checked; updateDisplay(); localStorage.setItem("poker_showDinnerCountdown", state.showDinnerCountdown); });
+
         function generateFullStructure() {
             state.levels = [
-                {type:"blind",sb:25,bb:50,duration:20},
-                {type:"blind",sb:50,bb:100,duration:20},
-                {type:"blind",sb:100,bb:200,duration:20},
-                {type:"blind",sb:200,bb:400,duration:20},
-                {type:"blind",sb:300,bb:600,duration:20},
-                {type:"break",txt:"DINNER BREAK"},
-                {type:"blind",sb:400,bb:800,duration:20},
-                {type:"break",txt:"CHIP UP & ADD-ON BREAK"},
-                {type:"blind",sb:500,bb:1000,duration:15},
-                {type:"blind",sb:1000,bb:2000,duration:15},
-                {type:"blind",sb:2000,bb:4000,duration:15},
-                {type:"blind",sb:3000,bb:6000,duration:15},
-                {type:"blind",sb:4000,bb:8000,duration:15},
-                {type:"blind",sb:5000,bb:10000,duration:15},
-                {type:"blind",sb:10000,bb:20000,duration:15},
-                {type:"blind",sb:20000,bb:40000,duration:15},
-                {type:"blind",sb:30000,bb:60000,duration:15},
-                {type:"blind",sb:40000,bb:80000,duration:15},
-                {type:"blind",sb:50000,bb:100000,duration:15},
-                {type:"blind",sb:60000,bb:120000,duration:15},
-                {type:"blind",sb:80000,bb:160000,duration:15},
+                {type:"blind",sb:25,bb:50,duration:20}, {type:"blind",sb:50,bb:100,duration:20}, {type:"blind",sb:100,bb:200,duration:20},
+                {type:"blind",sb:200,bb:400,duration:20}, {type:"blind",sb:300,bb:600,duration:20}, {type:"break",txt:"DINNER BREAK"},
+                {type:"blind",sb:400,bb:800,duration:20}, {type:"break",txt:"CHIP UP & ADD-ON BREAK"}, {type:"blind",sb:500,bb:1000,duration:15},
+                {type:"blind",sb:1000,bb:2000,duration:15}, {type:"blind",sb:2000,bb:4000,duration:15}, {type:"blind",sb:3000,bb:6000,duration:15},
+                {type:"blind",sb:4000,bb:8000,duration:15}, {type:"blind",sb:5000,bb:10000,duration:15}, {type:"blind",sb:10000,bb:20000,duration:15},
+                {type:"blind",sb:20000,bb:40000,duration:15}, {type:"blind",sb:30000,bb:60000,duration:15}, {type:"blind",sb:40000,bb:80000,duration:15},
+                {type:"blind",sb:50000,bb:100000,duration:15}, {type:"blind",sb:60000,bb:120000,duration:15}, {type:"blind",sb:80000,bb:160000,duration:15},
                 {type:"blind",sb:100000,bb:200000,duration:15}
             ];
             renderTable();
@@ -1009,9 +1021,7 @@
             const saved = JSON.parse(localStorage.getItem("poker_saved_structures") || "{}");
             els.savedStructuresSelect.innerHTML = "<option value=''>-- Select --</option>";
             Object.keys(saved).forEach(name => {
-                const opt = document.createElement("option");
-                opt.value = name;
-                opt.textContent = name;
+                const opt = document.createElement("option"); opt.value = name; opt.textContent = name;
                 if (name === localStorage.getItem("poker_current_structure_name")) opt.selected = true;
                 els.savedStructuresSelect.appendChild(opt);
             });
@@ -1021,337 +1031,169 @@
             const rows = els.structureTbody.querySelectorAll("tr");
             rows.forEach(row => {
                 row.draggable = true;
-                row.addEventListener("dragstart", e => {
-                    draggedRow = row;
-                    row.classList.add("dragging");
-                    e.dataTransfer.effectAllowed = "move";
-                });
-                row.addEventListener("dragend", () => {
-                    row.classList.remove("dragging");
-                    draggedRow = null;
-                });
-                row.addEventListener("dragover", e => {
-                    e.preventDefault();
-                    e.dataTransfer.dropEffect = "move";
-                    row.classList.add("drag-over");
-                });
-                row.addEventListener("dragleave", () => {
-                    row.classList.remove("drag-over");
-                });
+                row.addEventListener("dragstart", e => { draggedRow = row; row.classList.add("dragging"); e.dataTransfer.effectAllowed = "move"; });
+                row.addEventListener("dragend", () => { row.classList.remove("dragging"); draggedRow = null; });
+                row.addEventListener("dragover", e => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; row.classList.add("drag-over"); });
+                row.addEventListener("dragleave", () => { row.classList.remove("drag-over"); });
                 row.addEventListener("drop", e => {
-                    e.preventDefault();
-                    row.classList.remove("drag-over");
+                    e.preventDefault(); row.classList.remove("drag-over");
                     if (draggedRow && draggedRow !== row) {
                         const allRows = Array.from(els.structureTbody.querySelectorAll("tr"));
-                        const fromIdx = allRows.indexOf(draggedRow);
-                        const toIdx = allRows.indexOf(row);
-                        if (fromIdx < toIdx) {
-                            els.structureTbody.insertBefore(draggedRow, row.nextSibling);
-                        } else {
-                            els.structureTbody.insertBefore(draggedRow, row);
-                        }
-                        const level = state.levels.splice(fromIdx, 1)[0];
-                        state.levels.splice(toIdx, 0, level);
+                        const fromIdx = allRows.indexOf(draggedRow); const toIdx = allRows.indexOf(row);
+                        if (fromIdx < toIdx) els.structureTbody.insertBefore(draggedRow, row.nextSibling);
+                        else els.structureTbody.insertBefore(draggedRow, row);
+                        const level = state.levels.splice(fromIdx, 1)[0]; state.levels.splice(toIdx, 0, level);
                         renderTable();
                     }
                 });
             });
         }
         function renderTable() {
-            const fragment = document.createDocumentFragment();
-            const tbody = els.structureTbody;
-            tbody.innerHTML = '';
+            const tbody = els.structureTbody; tbody.innerHTML = '';
             state.levels.forEach((level, i) => {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td>${i + 1}</td>
-                    <td>
-                        <select onchange="updateLevel(${i}, 'type', this.value)">
-                            <option value="blind" ${level.type==='blind'?'selected':''}>Blind</option>
-                            <option value="break" ${level.type==='break'?'selected':''}>Break</option>
-                        </select>
-                    </td>
+                    <td><select onchange="updateLevel(${i}, 'type', this.value)"><option value="blind" ${level.type==='blind'?'selected':''}>Blind</option><option value="break" ${level.type==='break'?'selected':''}>Break</option></select></td>
                     <td><input type="number" value="${level.sb||''}" onchange="updateLevel(${i}, 'sb', +this.value)" ${level.type==='break'?'style="display:none"':''}></td>
                     <td><input type="number" value="${level.bb||''}" onchange="updateLevel(${i}, 'bb', +this.value)" ${level.type==='break'?'style="display:none"':''}></td>
                     <td><input type="number" min="1" value="${level.duration||20}" onchange="updateLevel(${i}, 'duration', +this.value)" ${level.type==='break'?'style="display:none"':''}></td>
                     <td><input type="text" value="${level.txt||''}" onchange="updateLevel(${i}, 'txt', this.value)" ${level.type==='blind'?'style="display:none"':''}></td>
                     <td><button onclick="deleteLevel(${i})">×</button></td>
                 `;
-                if (level.type === 'blind') {
-                    const inputs = tr.querySelectorAll('input');
-                    inputs[0].addEventListener('input', e => {
-                        const sb = +e.target.value;
-                        if (!isNaN(sb)) inputs[1].value = sb * 2;
-                    });
-                }
-                fragment.appendChild(tr);
+                tbody.appendChild(tr);
             });
-            tbody.appendChild(fragment);
-            makeRowsDraggable();
-            refreshSavedList();
+            makeRowsDraggable(); refreshSavedList();
         }
         function updateLevel(i, key, value) {
-            if (key === 'type' && value === 'blind' && !state.levels[i].sb) {
-                state.levels[i].sb = 25;
-                state.levels[i].bb = 50;
-                state.levels[i].duration = 20;
-            }
-            state.levels[i][key] = value;
-            renderTable();
-            updateDisplay();
+            if (key === 'type' && value === 'blind' && !state.levels[i].sb) { state.levels[i].sb = 25; state.levels[i].bb = 50; state.levels[i].duration = 20; }
+            state.levels[i][key] = value; renderTable(); updateDisplay();
         }
         function addBlindLevel() {
             const last = state.levels[state.levels.length - 1];
-            let sb = 25, bb = 50;
-            if (last && last.type === 'blind') {
-                sb = last.bb;
-                bb = last.bb * 2;
-            }
-            state.levels.push({ type: "blind", sb, bb, duration: 20 });
-            renderTable();
+            let sb = 25, bb = 50; if (last && last.type === 'blind') { sb = last.bb; bb = last.bb * 2; }
+            state.levels.push({ type: "blind", sb, bb, duration: 20 }); renderTable();
         }
-        function addBreakLevel() {
-            state.levels.push({ type: "break", txt: "BREAK" });
-            renderTable();
-        }
-        function deleteLevel(i) {
-            state.levels.splice(i, 1);
-            renderTable();
-        }
+        function addBreakLevel() { state.levels.push({ type: "break", txt: "BREAK" }); renderTable(); }
+        function deleteLevel(i) { state.levels.splice(i, 1); renderTable(); }
         function addExtraLevels(count) {
             const lastBlind = [...state.levels].reverse().find(l => l.type === "blind");
             if (!lastBlind) return;
             let nextSB = lastBlind.bb;
-            for (let i = 0; i < count; i++) {
-                const sb = nextSB;
-                const bb = sb * 2;
-                state.levels.push({ type: "blind", sb, bb, duration: 15 });
-                nextSB = bb;
-            }
-            renderTable();
-            updateDisplay();
+            for (let i = 0; i < count; i++) { const sb = nextSB; const bb = sb * 2; state.levels.push({ type: "blind", sb, bb, duration: 15 }); nextSB = bb; }
+            renderTable(); updateDisplay();
         }
         function saveCurrentStructure() {
             const name = els.structureNameInput.value.trim() || "Unnamed Structure";
             const saved = JSON.parse(localStorage.getItem("poker_saved_structures") || "{}");
-            saved[name] = state.levels;
-            localStorage.setItem("poker_saved_structures", JSON.stringify(saved));
-            localStorage.setItem("poker_current_structure_name", name);
-            alert('Structure "' + name + '" saved!');
-            refreshSavedList();
+            saved[name] = state.levels; localStorage.setItem("poker_saved_structures", JSON.stringify(saved));
+            localStorage.setItem("poker_current_structure_name", name); alert('Structure "' + name + '" saved!'); refreshSavedList();
         }
         function loadSelectedStructure() {
             const name = els.savedStructuresSelect.value;
             if (name) {
                 const saved = JSON.parse(localStorage.getItem("poker_saved_structures") || "{}");
-                if (saved[name]) {
-                    state.levels = saved[name];
-                    localStorage.setItem("poker_current_structure_name", name);
-                    renderTable();
-                    updateDisplay();
-                }
+                if (saved[name]) { state.levels = saved[name]; localStorage.setItem("poker_current_structure_name", name); renderTable(); updateDisplay(); }
             }
         }
         function deleteSelectedStructure() {
             const name = els.savedStructuresSelect.value;
             if (!name || !confirm("Delete \"" + name + "\"?")) return;
             const saved = JSON.parse(localStorage.getItem("poker_saved_structures") || "{}");
-            delete saved[name];
-            localStorage.setItem("poker_saved_structures", JSON.stringify(saved));
-            if (localStorage.getItem("poker_current_structure_name") === name) {
-                localStorage.removeItem("poker_current_structure_name");
-            }
+            delete saved[name]; localStorage.setItem("poker_saved_structures", JSON.stringify(saved));
+            if (localStorage.getItem("poker_current_structure_name") === name) localStorage.removeItem("poker_current_structure_name");
             refreshSavedList();
         }
         function exportStructure() {
             const name = els.structureNameInput.value.trim() || "poker-structure";
-            const safeName = name.replace(/[^a-zA-Z0-9-_]/g, '_');
-            const filename = safeName + ".json";
-            const data = JSON.stringify(state.levels, null, 2);
-            const blob = new Blob([data], {type: "application/json"});
+            const filename = name.replace(/[^a-zA-Z0-9-_]/g, '_') + ".json";
+            const blob = new Blob([JSON.stringify(state.levels, null, 2)], {type: "application/json"});
             const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = filename;
-            a.click();
-            URL.revokeObjectURL(url);
+            const a = document.createElement("a"); a.href = url; a.download = filename; a.click(); URL.revokeObjectURL(url);
         }
         els.importFile.addEventListener('change', e => {
-            const file = e.target.files[0];
-            if (!file) return;
+            const file = e.target.files[0]; if (!file) return;
             const reader = new FileReader();
-            reader.onload = ev => {
-                try {
-                    state.levels = JSON.parse(ev.target.result);
-                    renderTable();
-                    alert("Structure imported!");
-                } catch (err) {
-                    alert("Invalid JSON file");
-                }
-            };
-            reader.readAsText(file);
-            e.target.value = "";
+            reader.onload = ev => { try { state.levels = JSON.parse(ev.target.result); renderTable(); alert("Structure imported!"); } catch (err) { alert("Invalid JSON file"); } };
+            reader.readAsText(file); e.target.value = "";
         });
         function sumBlindDurationsTo(targetIdx) {
             let sum = 0;
-            for (let i = state.idx; i < targetIdx; i++) {
-                if (state.levels[i].type === "blind") {
-                    sum += dur(state.levels[i]);
-                }
-            }
+            for (let i = state.idx; i < targetIdx; i++) { if (state.levels[i].type === "blind") sum += (state.levels[i].duration || 20) * 60; }
             return sum;
         }
         function updateDisplay() {
             if (state.levels.length === 0 || state.idx >= state.levels.length) return;
-            const c = state.levels[state.idx];
-            const n = state.levels[state.idx + 1];
+            const c = state.levels[state.idx]; const n = state.levels[state.idx + 1];
             els.timer.textContent = mmss(state.timeLeft);
             els.timer.style.color = state.timeLeft <= 60 ? "#ff3b3b" : "var(--text-gold)";
             els.elapsedSpan.textContent = hhmmss(state.totalElapsed);
             const dinnerBreakIdx = state.levels.findIndex(l => l.type === "break" && l.txt && l.txt.toUpperCase().includes("DINNER"));
             const dinnerLevelIdx = dinnerBreakIdx > 0 ? dinnerBreakIdx - 1 : -1;
-            const isBeforeOrDuringDinnerLevel = dinnerLevelIdx !== -1 && state.idx <= dinnerLevelIdx;
-            if (state.showDinnerCountdown && isBeforeOrDuringDinnerLevel && c.type !== "break") {
-                let tillDinnerEnd = 0;
-                if (state.idx < dinnerLevelIdx) {
-                    tillDinnerEnd = sumBlindDurationsTo(dinnerLevelIdx) + state.timeLeft;
-                } else if (state.idx === dinnerLevelIdx) {
-                    tillDinnerEnd = state.timeLeft;
-                }
-                els.lunchTime.textContent = hhmmss(tillDinnerEnd);
-                els.lunchCountdown.style.display = "block";
-            } else {
-                els.lunchCountdown.style.display = "none";
-            }
+            if (state.showDinnerCountdown && dinnerLevelIdx !== -1 && state.idx <= dinnerLevelIdx && c.type !== "break") {
+                let tillDinnerEnd = (state.idx < dinnerLevelIdx) ? sumBlindDurationsTo(dinnerLevelIdx) + state.timeLeft : state.timeLeft;
+                els.lunchTime.textContent = hhmmss(tillDinnerEnd); els.lunchCountdown.style.display = "block";
+            } else { els.lunchCountdown.style.display = "none"; }
             const rebuyBreakIdx = state.levels.findIndex(l => l.type === "break" && l.txt && l.txt.toUpperCase().includes("CHIP UP"));
             const rebuyLevelIdx = rebuyBreakIdx > 0 ? rebuyBreakIdx - 1 : -1;
-            const isBeforeOrDuringRebuyLevel = rebuyLevelIdx !== -1 && state.idx <= rebuyLevelIdx;
-            if (state.showRebuyCountdown && isBeforeOrDuringRebuyLevel && c.type !== "break") {
-                let tillRebuyEnd = 0;
-                if (state.idx < rebuyLevelIdx) {
-                    tillRebuyEnd = sumBlindDurationsTo(rebuyLevelIdx) + state.timeLeft;
-                } else if (state.idx === rebuyLevelIdx) {
-                    tillRebuyEnd = state.timeLeft;
-                }
-                els.rebuyTime.textContent = hhmmss(tillRebuyEnd);
-                els.rebuyCountdown.style.display = "block";
-            } else {
-                els.rebuyCountdown.style.display = "none";
-            }
+            if (state.showRebuyCountdown && rebuyLevelIdx !== -1 && state.idx <= rebuyLevelIdx && c.type !== "break") {
+                let tillRebuyEnd = (state.idx < rebuyLevelIdx) ? sumBlindDurationsTo(rebuyLevelIdx) + state.timeLeft : state.timeLeft;
+                els.rebuyTime.textContent = hhmmss(tillRebuyEnd); els.rebuyCountdown.style.display = "block";
+            } else { els.rebuyCountdown.style.display = "none"; }
             els.elapsedTime.style.display = state.showElapsed ? "block" : "none";
             if (c.type === "break") {
-                els.blinds.textContent = c.txt || "BREAK";
-                els.nextBlinds.textContent = n?.type === "blind" ? "Next: " + formatNumber(n.sb) + " / " + formatNumber(n.bb) : "";
-                document.body.classList.add("break");
-                els.timer.style.display = "none";
-                els.breakMessage.style.display = "block";
+                els.blinds.textContent = c.txt || "BREAK"; els.nextBlinds.textContent = n?.type === "blind" ? "Next: " + formatNumber(n.sb) + " / " + formatNumber(n.bb) : "";
+                document.body.classList.add("break"); els.timer.style.display = "none"; els.breakMessage.style.display = "block";
             } else {
                 els.blinds.textContent = "Blinds: " + formatNumber(c.sb) + " / " + formatNumber(c.bb);
                 els.nextBlinds.textContent = n ? (n.type === "break" ? "Next: " + (n.txt || "BREAK") : "Next: " + formatNumber(n.sb) + " / " + formatNumber(n.bb)) : "";
-                document.body.classList.remove("break");
-                els.timer.style.display = "block";
-                els.breakMessage.style.display = "none";
+                document.body.classList.remove("break"); els.timer.style.display = "block"; els.breakMessage.style.display = "none";
             }
             if (state.previousBlinds !== null && c.type === "blind") {
                 const currentBlinds = c.sb + "/" + c.bb;
-                if (currentBlinds !== state.previousBlinds) {
-                    els.blinds.classList.add("level-up");
-                    setTimeout(() => {
-                        els.blinds.classList.remove("level-up");
-                    }, 1500);
-                }
+                if (currentBlinds !== state.previousBlinds) { els.blinds.classList.add("level-up"); setTimeout(() => els.blinds.classList.remove("level-up"), 1500); }
             }
             state.previousBlinds = c.type === "blind" ? c.sb + "/" + c.bb : null;
         }
         const mmss = s => `${String(Math.floor(Math.max(0,s)/60)).padStart(2,'0')}:${String(Math.floor(Math.max(0,s)%60)).padStart(2,'0')}`;
         const hhmmss = s => {
-            s = Math.max(0, Math.floor(s));
-            const h = Math.floor(s / 3600);
-            const m = Math.floor((s % 3600) / 60);
-            const sec = s % 60;
+            s = Math.max(0, Math.floor(s)); const h = Math.floor(s / 3600); const m = Math.floor((s % 3600) / 60); const sec = s % 60;
             return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
         };
-        const dur = l => l.type === "blind" ? (l.duration || 20) * 60 : 0;
         function startLevel() {
             if (state.levels.length === 0) return;
-            state.timeLeft = dur(state.levels[state.idx]);
-            if (state.levels[state.idx].type === "break") {
-                state.paused = true;
-                els.pauseBtn.textContent = "▶";
-            }
+            state.timeLeft = (state.levels[state.idx].type === "blind") ? (state.levels[state.idx].duration || 20) * 60 : 0;
+            if (state.levels[state.idx].type === "break") { state.paused = true; els.pauseBtn.textContent = "▶"; }
             updateDisplay();
         }
         function nextLevel() {
-            if (state.idx < state.levels.length - 1) {
-                state.idx++;
-                startLevel();
-            } else {
-                // End of structure reached
-                if (state.enableEndPrompt) {
-                    const addMore = confirm(`The tournament structure has ended.\n\nWould you like to automatically add ${state.extraLevelsCount} more blind levels?`);
-                    if (addMore) {
-                        addExtraLevels(state.extraLevelsCount);
-                        state.idx++;
-                        startLevel();
-                        return;
-                    }
-                }
-                alert("Thank-you for using the Deez Nutz Poker Timer.\nYou can now safely close the browser tab/window.");
+            if (state.idx < state.levels.length - 1) { state.idx++; startLevel(); }
+            else if (state.enableEndPrompt) {
+                if (confirm(`Tournament ended. Add ${state.extraLevelsCount} more blind levels?`)) { addExtraLevels(state.extraLevelsCount); state.idx++; startLevel(); }
+                else { alert("Thank-you for using the Deez Nutz Poker Timer."); }
             }
         }
-        function previousLevel() {
-            if (state.idx > 0) {
-                state.idx--;
-                startLevel();
-            }
-        }
+        function previousLevel() { if (state.idx > 0) { state.idx--; startLevel(); } }
         function togglePause() {
-            state.paused = !state.paused;
-            if (!state.paused && !state.tournamentStarted) {
-                state.tournamentStarted = true;
-                state.tournamentStartTimestamp = performance.now();
-            }
+            state.paused = !state.paused; if (!state.paused && !state.tournamentStarted) { state.tournamentStarted = true; state.tournamentStartTimestamp = performance.now(); }
             els.pauseBtn.textContent = state.paused ? "▶" : "❚❚";
         }
-        function addTime(sec) {
-            state.timeLeft += sec;
-            updateDisplay();
-        }
+        function addTime(sec) { state.timeLeft += sec; updateDisplay(); }
         let lastUpdate = 0;
         function loop(now) {
-            if (!state.last) state.last = now;
-            const dt = (now - state.last) / 1000;
-            state.last = now;
+            if (!state.last) state.last = now; const dt = (now - state.last) / 1000; state.last = now;
             if (state.tournamentStarted) state.totalElapsed = (now - state.tournamentStartTimestamp) / 1000;
             if (!state.paused) {
                 state.timeLeft -= dt;
                 if (Math.floor(state.timeLeft + dt) === 60 && Math.floor(state.timeLeft) <= 60) els.warningSound.play().catch(() => {});
-                if (state.timeLeft <= 5 && state.timeLeft > 0) {
-                    const cur = Math.floor(state.timeLeft);
-                    const prev = Math.floor(state.timeLeft + dt);
-                    if (cur < prev) els.endSound.play().catch(() => {});
-                }
-                if (state.timeLeft <= 0) {
-                    els.blindsUpSound.play().catch(() => {});
-                    nextLevel();
-                }
+                if (state.timeLeft <= 5 && state.timeLeft > 0) { if (Math.floor(state.timeLeft) < Math.floor(state.timeLeft + dt)) els.endSound.play().catch(() => {}); }
+                if (state.timeLeft <= 0) { els.blindsUpSound.play().catch(() => {}); nextLevel(); }
             }
-            if (now - lastUpdate >= 1000) {
-                updateDisplay();
-                lastUpdate = now;
-            }
+            if (now - lastUpdate >= 1000) { updateDisplay(); lastUpdate = now; }
             requestAnimationFrame(loop);
         }
-        function toggleFullscreen() {
-            if (document.fullscreenElement) document.exitFullscreen();
-            else document.documentElement.requestFullscreen();
-        }
-        function toggleTVMode() {
-            const isTV = document.body.classList.toggle("tv-mode");
-            if (isTV) document.documentElement.requestFullscreen();
-            else if (document.fullscreenElement) document.exitFullscreen();
-            startInactivityTimer();
-        }
+        function toggleFullscreen() { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen(); }
+        function toggleTVMode() { const isTV = document.body.classList.toggle("tv-mode"); if (isTV) document.documentElement.requestFullscreen(); else if (document.fullscreenElement) document.exitFullscreen(); startInactivityTimer(); }
         document.addEventListener('keydown', e => {
             if (e.target.closest('input, textarea, select')) return;
             switch (e.key.toLowerCase()) {
@@ -1362,90 +1204,49 @@
                 case '-': case '_': e.preventDefault(); addTime(-60); break;
                 case 'f': e.preventDefault(); toggleFullscreen(); break;
                 case 't': e.preventDefault(); toggleTVMode(); break;
-                case 'escape':
-                    e.preventDefault();
-                    if (document.fullscreenElement) document.exitFullscreen();
-                    if (document.body.classList.contains('tv-mode')) document.body.classList.remove('tv-mode');
-                    break;
+                case 'escape': e.preventDefault(); if (document.fullscreenElement) document.exitFullscreen(); if (document.body.classList.contains('tv-mode')) document.body.classList.remove('tv-mode'); break;
             }
         });
-        function restoreDefaults() {
-            if (!confirm("Restore all defaults?")) return;
-            localStorage.clear();
-            location.reload();
-        }
-        function debounce(fn, delay) {
-            let timeout;
-            return function (...args) {
-                clearTimeout(timeout);
-                timeout = setTimeout(() => fn.apply(this, args), delay);
-            };
-        }
+        function restoreDefaults() { if (!confirm("Restore all defaults?")) return; localStorage.clear(); location.reload(); }
+        function debounce(fn, delay) { let timeout; return function (...args) { clearTimeout(timeout); timeout = setTimeout(() => fn.apply(this, args), delay); }; }
+        
         window.addEventListener('load', () => {
-            generateFullStructure();
-            renderTable();
-            // Load appearance defaults
+            els.highHandInput.value = "";
+            generateFullStructure(); renderTable();
             const defaultsJson = localStorage.getItem('poker_appearance_defaults');
             if (defaultsJson) {
-                const defaults = JSON.parse(defaultsJson);
-                els.timerSizeSlider.value = defaults.timerSize || 20;
-                els.blindsSizeSlider.value = defaults.blindsSize || 5;
-                els.nextSizeSlider.value = defaults.nextSize || 2.6;
-                els.countdownSizeSlider.value = defaults.countdownSize || 2.6;
-                els.breakMsgSizeSlider.value = defaults.breakMsgSize || 4;
-                els.logoSizeSlider.value = defaults.logoSizePercent || 100;
-                els.cursorHideDelaySlider.value = defaults.cursorHideDelay || 5;
-                els.autoHideCursor.checked = defaults.autoHideCursor !== false;
-                els.genericMode.checked = defaults.genericMode || false;
-                els.noLogoMode.checked = defaults.noLogoMode || false;
-                state.timerSize = defaults.timerSize || 20;
-                state.blindsSize = defaults.blindsSize || 5;
-                state.nextSize = defaults.nextSize || 2.6;
-                state.countdownSize = defaults.countdownSize || 2.6;
-                state.breakMsgSize = defaults.breakMsgSize || 4;
-                state.logoSizePercent = defaults.logoSizePercent || 100;
-                state.cursorHideDelay = defaults.cursorHideDelay || 5;
-                state.autoHideCursor = defaults.autoHideCursor !== false;
-                state.genericMode = defaults.genericMode || false;
-                state.noLogoMode = defaults.noLogoMode || false;
-                updateTimerSize();
-                updateBlindsSize();
-                updateNextSize();
-                updateCountdownSize();
-                updateBreakMsgSize();
-                updateLogoSize();
-                updateCursorHideDelay();
+                const d = JSON.parse(defaultsJson);
+                els.timerSizeSlider.value = d.timerSize || 20; els.blindsSizeSlider.value = d.blindsSize || 5;
+                els.nextSizeSlider.value = d.nextSize || 2.6; els.countdownSizeSlider.value = d.countdownSize || 2.6;
+                els.breakMsgSizeSlider.value = d.breakMsgSize || 4; els.logoSizeSlider.value = d.logoSizePercent || 100;
+                els.cursorHideDelaySlider.value = d.cursorHideDelay || 5; els.autoHideCursor.checked = d.autoHideCursor !== false;
+                els.genericMode.checked = d.genericMode || false; els.noLogoMode.checked = d.noLogoMode || false;
+                
+                state.timerSize = d.timerSize || 20; state.blindsSize = d.blindsSize || 5; state.nextSize = d.nextSize || 2.6;
+                state.countdownSize = d.countdownSize || 2.6; state.breakMsgSize = d.breakMsgSize || 4; state.logoSizePercent = d.logoSizePercent || 100;
+                state.cursorHideDelay = d.cursorHideDelay || 5; state.autoHideCursor = d.autoHideCursor !== false;
+                state.genericMode = d.genericMode || false; state.noLogoMode = d.noLogoMode || false;
+
+                updateTimerSize(); updateBlindsSize(); updateNextSize(); updateCountdownSize(); updateBreakMsgSize(); updateLogoSize(); updateCursorHideDelay();
                 autoHideCursorEnabled = state.autoHideCursor;
-                document.body.classList.toggle('generic-mode', state.genericMode);
-                document.body.classList.toggle('no-logo', state.noLogoMode);
+                document.body.classList.toggle('generic-mode', state.genericMode); document.body.classList.toggle('no-logo', state.noLogoMode);
             }
-            // Load end-of-tournament settings
+
+            // Load High Hand visibility
+            const showHH = localStorage.getItem("poker_showHighHand") !== "false";
+            state.showHighHand = showHH;
+            els.showHighHand.checked = showHH;
+            els.highHandContainer.style.display = showHH ? 'block' : 'none';
+
             state.enableEndPrompt = localStorage.getItem("poker_enableEndPrompt") !== "false";
             state.extraLevelsCount = parseInt(localStorage.getItem("poker_extraLevelsCount")) || 5;
-            els.enableEndPrompt.checked = state.enableEndPrompt;
-            els.extraLevelsCount.value = state.extraLevelsCount;
-            // Theme loading
-            const isLight = localStorage.getItem('poker_lightMode') === 'true';
-            const isHigh = localStorage.getItem('poker_highContrast') === 'true';
-            if (isLight) {
-                els.lightMode.checked = true;
-                document.body.classList.add('light-mode');
-            } else if (isHigh) {
-                els.highContrastMode.checked = true;
-                document.body.classList.add('high-contrast');
-            } else {
-                els.normalMode.checked = true;
-            }
-            // Load saved logo offset
-            const savedOffset = localStorage.getItem('poker_logoOffset');
-            if (savedOffset) {
-                const offset = JSON.parse(savedOffset);
-                state.logoOffset = offset;
-                els.logo.style.transform = `translate(${offset.x}px, ${offset.y}px)`;
-            }
-            startLevel();
-            requestAnimationFrame(loop);
-            startInactivityTimer();
+            els.enableEndPrompt.checked = state.enableEndPrompt; els.extraLevelsCount.value = state.extraLevelsCount;
+            const isLight = localStorage.getItem('poker_lightMode') === 'true'; const isHigh = localStorage.getItem('poker_highContrast') === 'true';
+            if (isLight) { els.lightMode.checked = true; document.body.classList.add('light-mode'); }
+            else if (isHigh) { els.highContrastMode.checked = true; document.body.classList.add('high-contrast'); }
+            else { els.normalMode.checked = true; }
+            const savedOffset = localStorage.getItem('poker_logoOffset'); if (savedOffset) { const o = JSON.parse(savedOffset); state.logoOffset = o; els.logo.style.transform = `translate(${o.x}px, ${o.y}px)`; }
+            startLevel(); requestAnimationFrame(loop); startInactivityTimer();
         });
     </script>
 </body>
