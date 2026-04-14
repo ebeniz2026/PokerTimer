@@ -632,6 +632,7 @@
     <audio id="warningSound" preload="none" src="Media/warning.mp3"></audio>
     <audio id="endSound" preload="none" src="Media/end.mp3"></audio>
     <audio id="blindsUpSound" preload="none" src="Media/blinds-up.mp3"></audio>
+    <audio id="shuffleSound" preload="auto" src="Media/SHUFFLE-UP.MP3"></audio>
     <script>
         // Helper: format number with commas
         function formatNumber(num) {
@@ -725,6 +726,7 @@
             warningSound: document.getElementById("warningSound"),
             endSound: document.getElementById("endSound"),
             blindsUpSound: document.getElementById("blindsUpSound"),
+            shuffleSound: document.getElementById("shuffleSound"),
             warningUpload: document.getElementById("warningUpload"),
             endUpload: document.getElementById("endUpload"),
             blindsUpUpload: document.getElementById("blindsUpUpload"),
@@ -1175,7 +1177,12 @@
         }
         function previousLevel() { if (state.idx > 0) { state.idx--; startLevel(); } }
         function togglePause() {
-            state.paused = !state.paused; if (!state.paused && !state.tournamentStarted) { state.tournamentStarted = true; state.tournamentStartTimestamp = performance.now(); }
+            state.paused = !state.paused; 
+            if (!state.paused && !state.tournamentStarted) { 
+                state.tournamentStarted = true; 
+                state.tournamentStartTimestamp = performance.now(); 
+                els.shuffleSound.play().catch(() => {});
+            }
             els.pauseBtn.textContent = state.paused ? "▶" : "❚❚";
         }
         function addTime(sec) { state.timeLeft += sec; updateDisplay(); }
