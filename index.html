@@ -1008,7 +1008,7 @@
             state.levels = [
                 {type:"blind",sb:25,bb:50,duration:20}, {type:"blind",sb:50,bb:100,duration:20}, {type:"blind",sb:100,bb:200,duration:20},
                 {type:"blind",sb:200,bb:400,duration:20}, {type:"blind",sb:300,bb:600,duration:20}, {type:"break",txt:"DINNER BREAK"},
-                {type:"blind",sb:400,bb:800,duration:20}, {type:"break",txt:"CHIP UP & ADD-ON BREAK"}, {type:"blind",sb:500,bb:1000,duration:15},
+                {type:"blind",sb:400,bb:800,duration:20}, {type:"break",txt:"LAST REBUY"}, {type:"blind",sb:500,bb:1000,duration:15},
                 {type:"blind",sb:1000,bb:2000,duration:15}, {type:"blind",sb:2000,bb:4000,duration:15}, {type:"blind",sb:3000,bb:6000,duration:15},
                 {type:"blind",sb:4000,bb:8000,duration:15}, {type:"blind",sb:5000,bb:10000,duration:15}, {type:"blind",sb:10000,bb:20000,duration:15},
                 {type:"blind",sb:20000,bb:40000,duration:15}, {type:"blind",sb:30000,bb:60000,duration:15}, {type:"blind",sb:40000,bb:80000,duration:15},
@@ -1134,7 +1134,7 @@
                 let tillDinnerEnd = (state.idx < dinnerLevelIdx) ? sumBlindDurationsTo(dinnerLevelIdx) + state.timeLeft : state.timeLeft;
                 els.lunchTime.textContent = hhmmss(tillDinnerEnd); els.lunchCountdown.style.display = "block";
             } else { els.lunchCountdown.style.display = "none"; }
-            const rebuyBreakIdx = state.levels.findIndex(l => l.type === "break" && l.txt && l.txt.toUpperCase().includes("CHIP UP"));
+            const rebuyBreakIdx = state.levels.findIndex(l => l.type === "break" && l.txt && l.txt.toUpperCase().includes("LAST REBUY"));
             const rebuyLevelIdx = rebuyBreakIdx > 0 ? rebuyBreakIdx - 1 : -1;
             if (state.showRebuyCountdown && rebuyLevelIdx !== -1 && state.idx <= rebuyLevelIdx && c.type !== "break") {
                 let tillRebuyEnd = (state.idx < rebuyLevelIdx) ? sumBlindDurationsTo(rebuyLevelIdx) + state.timeLeft : state.timeLeft;
@@ -1201,6 +1201,7 @@
                 case 'arrowleft': case 'p': e.preventDefault(); previousLevel(); break;
                 case 'arrowright': case 'n': e.preventDefault(); nextLevel(); break;
                 case '+': case '=': e.preventDefault(); addTime(60); break;
+                case 'arrowup': e.preventDefault(); addTime(60); break; // Add convenience
                 case '-': case '_': e.preventDefault(); addTime(-60); break;
                 case 'f': e.preventDefault(); toggleFullscreen(); break;
                 case 't': e.preventDefault(); toggleTVMode(); break;
