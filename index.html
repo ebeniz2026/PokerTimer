@@ -522,7 +522,18 @@
             </div>
             <div class="settings-group">
                 <details>
-                    <summary>Chip Values</summary>
+                    <summary>Ticker</summary>
+                    <div class="settings-group">
+                        <label><input type="checkbox" id="showChipTicker" checked> Show Ticker</label>
+                        <div class="slider-row" style="margin-top: 10px;">
+                            <label>Ticker Speed (s): <span id="tickerSpeedValue">60</span>s</label>
+                            <input type="range" id="tickerSpeedSlider" min="10" max="120" value="60" step="5" aria-label="Ticker speed slider">
+                        </div>
+                    </div>
+                    <div class="settings-group">
+                        <label>Custom Ticker Text:</label>
+                        <textarea id="customTickerTextInput" placeholder="Type anything you want to appear in the ticker..." oninput="updateCustomTickerText(this.value)" style="width:100%; height:50px; font-size: 14px;"></textarea>
+                    </div>
                     <div class="settings-group" id="chipEditorContainer">
                         </div>
                     <div class="settings-group" style="text-align:center;">
@@ -572,16 +583,11 @@
                                 <input type="range" id="logoSizeSlider" min="50" max="200" value="100" step="5" aria-label="Logo size slider">
                             </div>
                             <div class="slider-row">
-                                <label>Ticker Speed (s): <span id="tickerSpeedValue">60</span>s</label>
-                                <input type="range" id="tickerSpeedSlider" min="10" max="120" value="60" step="5" aria-label="Ticker speed slider">
-                            </div>
-                            <div class="slider-row">
                                 <label>Cursor Hide Delay: <span id="cursorHideDelayValue">5</span>s</label>
                                 <input type="range" id="cursorHideDelaySlider" min="1" max="30" value="5" step="1" aria-label="Cursor hide delay slider">
                             </div>
                         </div>
                         <div class="settings-group">
-                            <label><input type="checkbox" id="showChipTicker" checked> Show CHIP VALUE TICKER</label>
                             <label><input type="checkbox" id="autoHideCursor" checked> Auto-hide cursor after inactivity</label>
                             <label><input type="checkbox" id="genericMode"> Generic mode (solid colour background, no logo)</label>
                             <label><input type="checkbox" id="noLogoMode" checked> Hide logo even with image background</label>
@@ -723,6 +729,7 @@
             noLogoMode: true,
             showHighHand: true,
             showChipTicker: true,
+            customTickerText: "",
             tickerSpeed: 60,
             timerSize: 20,
             blindsSize: 5,
@@ -766,6 +773,7 @@
             noLogoMode: document.getElementById("noLogoMode"),
             showHighHand: document.getElementById("showHighHand"),
             showChipTicker: document.getElementById("showChipTicker"),
+            customTickerTextInput: document.getElementById("customTickerTextInput"),
             showElapsed: document.getElementById("showElapsed"),
             showRebuyCountdown: document.getElementById("showRebuyCountdown"),
             showDinnerCountdown: document.getElementById("showDinnerCountdown"),
@@ -852,14 +860,26 @@
             alert("Chip values saved!");
         }
 
+        function updateCustomTickerText(val) {
+            state.customTickerText = val;
+            localStorage.setItem("poker_customTickerText", val);
+            updateTicker();
+        }
+
         function updateTicker() {
-            let html = "";
-            const content = state.chips.map(chip => {
+            let chipPart = state.chips.map(chip => {
                 const shadow = chip.color.toLowerCase() === "#000000" ? "text-shadow: 0 0 2px #fff;" : "";
                 return `<span style="color: ${chip.color}; ${shadow}">${chip.label} = ${chip.value}</span>`;
             }).join(" &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; ");
             
-            els.tickerContent.innerHTML = content + " &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; " + content;
+            let combined = "";
+            if (state.customTickerText && state.customTickerText.trim() !== "") {
+                combined = state.customTickerText + (chipPart ? " &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; " : "") + chipPart;
+            } else {
+                combined = chipPart;
+            }
+
+            els.tickerContent.innerHTML = combined + " &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; " + combined;
             els.tickerContent.style.animationDuration = state.tickerSpeed + "s";
         }
 
@@ -1382,6 +1402,11 @@
                 autoHideCursorEnabled = state.autoHideCursor;
                 document.body.classList.toggle('generic-mode', state.genericMode); 
             }
+
+            state.customTickerText = localStorage.getItem("poker_customTickerText") || "";
+            els.customTickerTextInput.value = state.customTickerText;
+            updateTicker();
+
             els.chipTicker.style.display = state.showChipTicker ? 'block' : 'none';
             document.body.classList.toggle('no-logo', state.noLogoMode);
             const showHH = localStorage.getItem("poker_showHighHand") !== "false";
