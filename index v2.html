@@ -1,0 +1,2286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>Poker Timer</title>
+    <style>
+        /* ======================== ROOT VARIABLES ======================== */
+        :root {
+            --bg-primary: #006400;
+            --bg-overlay: rgba(0,0,0,0.36);
+            --text-primary: #ffffff;
+            --text-gold: #ffd700;
+            --text-red: #ff3b3b;
+            --break-bg: rgba(139,0,0,0.55);
+            --button-bg: rgba(255,255,255,0.15);
+            --button-hover: rgba(255,255,255,0.3);
+            --shadow: rgba(0,0,0,0.3);
+            --countdown-color: #ffffff;
+            --countdown-shadow: none;
+            /* New colour variables for timers */
+            --main-timer-color: #ffd700;
+            --blinds-color: #ffffff;
+            --next-color: #ffffff;
+            --dinner-color: #ffcc00;
+            --rebuy-color: #ff6666;
+            --elapsed-color: #66ff66;
+        }
+        body.high-contrast {
+            --bg-primary: #000000;
+            --bg-overlay: rgba(0,0,0,0.8);
+            --text-primary: #ffffff;
+            --text-gold: #ffff00;
+            --text-red: #ff0000;
+            --break-bg: #8b0000;
+            --button-bg: #333333;
+            --button-hover: #ffff00;
+            --countdown-color: #ffffff;
+            --countdown-shadow: none;
+            --main-timer-color: #ffff00;
+            --blinds-color: #ffff00;
+            --next-color: #ffff00;
+            color: #ffffff !important;
+        }
+        body.high-contrast .blinds,
+        body.high-contrast .next,
+        body.high-contrast .timer-row,
+        body.high-contrast #timer { color: #ffff00 !important; }
+        /* ======================== GENERAL LAYOUT ======================== */
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            color: var(--text-primary);
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            min-height: 100vh;
+            background: var(--bg-primary);
+            background-image:
+                repeating-linear-gradient(45deg, rgba(255,255,255,.02) 0 1px, transparent 1px 4px),
+                linear-gradient(var(--bg-overlay), var(--bg-overlay)),
+                url('Media/background.jpg');
+            background-size: auto, auto, cover;
+            background-position: center, center, center;
+            background-repeat: repeat, no-repeat, no-repeat;
+            background-blend-mode: normal, normal, multiply;
+            transition: background-color .8s, background-image .8s;
+            overflow: hidden;
+            position: relative;
+            cursor: default;
+        }
+        body.cursor-hidden { cursor: none; }
+        .top-right-controls, .bottom-right-modes, #settingsPanel {
+            opacity: 1;
+            transition: opacity 0.8s ease;
+        }
+        body.fullscreen-mode.controls-hidden .top-right-controls,
+        body.fullscreen-mode.controls-hidden .bottom-right-modes,
+        body.fullscreen-mode.controls-hidden #settingsPanel {
+            opacity: 0;
+            pointer-events: none;
+        }
+        body:not(.break) { background-color: rgba(0,0,0,.32); }
+        .break { background-color: var(--break-bg) !important; }
+        body.generic-mode {
+            background-image: none !important;
+            background-color: var(--bg-primary) !important;
+        }
+        body.generic-mode .break { background-color: var(--break-bg) !important; }
+        .main-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            width: 100%;
+            flex: 1;
+            padding-top: 4vh;
+            padding-bottom: 2vh;
+            position: relative;
+        }
+        #logo {
+            position: absolute;
+            bottom: 2vh;
+            left: 2vw;
+            max-height: 166px;
+            max-width: 414px;
+            height: auto;
+            width: auto;
+            object-fit: contain;
+            z-index: 90;
+            opacity: 0.9;
+            transition: opacity 0.3s, max-height 0.3s, max-width 0.3s, transform 0.2s ease;
+            cursor: move;
+            user-select: none;
+        }
+        #logo:hover { opacity: 1; }
+        #logo.dragging { opacity: 0.6; }
+        .generic-mode #logo, .no-logo #logo { display: none; }
+        #timer {
+            font-size: 18vw;
+            font-weight: bold;
+            color: var(--main-timer-color);
+            text-shadow: 2px 2px 0 #000, -2px 2px 0 #000, 2px -2px 0 #000, -2px -2px 0 #000;
+            margin: 1vh 0 0.5vh 0;
+            transition: font-size 0.3s ease;
+        }
+        .break-message {
+            font-size: 3.8vw;
+            font-weight: bold;
+            color: var(--text-primary);
+            text-shadow: 2px 2px 4px #000;
+            margin: 1.5vh 0;
+            padding: 0 20px;
+            line-height: 1.4;
+            transition: font-size 0.3s ease;
+        }
+        .blinds {
+            font-size: 4.8vw;
+            font-weight: bold;
+            margin: 1vh 0;
+            transition: font-size 0.3s ease;
+            color: var(--blinds-color);
+        }
+        .next {
+            font-size: 2.4vw;
+            opacity: .85;
+            margin: 0.5vh 0;
+            transition: font-size 0.3s ease;
+            color: var(--next-color);
+        }
+        .timer-row {
+            display: flex;
+            justify-content: center;
+            gap: 5vw;
+            flex-wrap: wrap;
+            margin: 1vh 0 2.5vh 0;
+            font-size: 2.4vw;
+            opacity: 1;
+            transition: font-size 0.3s ease;
+            color: var(--countdown-color);
+            text-shadow: var(--countdown-shadow);
+        }
+        .timer-item { white-space: nowrap; transition: font-size 0.3s ease; }
+        #lunchTime { color: var(--dinner-color); }
+        #rebuyTime { color: var(--rebuy-color); }
+        #elapsedSpan { color: var(--elapsed-color); }
+        /* ======================== HIGH HAND SECTION ======================== */
+        .high-hand-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 92vw;
+            margin: 0 auto;
+            z-index: 85;
+            pointer-events: auto;
+        }
+        .high-hand-label {
+            font-size: 2.1vw;
+            font-weight: bold;
+            letter-spacing: 2px;
+            opacity: 0.9;
+            margin-bottom: 0.6vh;
+            color: var(--text-gold);
+        }
+        .high-hand-input {
+            font-size: 3vw;
+            font-weight: bold;
+            color: #ffd700;
+            background: rgba(0,0,0,0.45);
+            border: 3px solid rgba(255,215,0,0.4);
+            border-radius: 16px;
+            padding: 10px 24px;
+            width: fit-content;
+            min-width: 340px;
+            max-width: 92vw;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            transition: all 0.3s ease;
+            box-sizing: border-box;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .high-hand-input:focus {
+            outline: none;
+            border-color: #ffd700;
+            box-shadow: 0 0 0 4px rgba(255,215,0,0.3);
+            transform: scale(1.02);
+        }
+        .high-hand-input::placeholder {
+            color: rgba(255,215,0,0.6);
+            font-weight: normal;
+        }
+        button {
+            background: var(--button-bg);
+            color: var(--text-primary);
+            border: none;
+            border-radius: 50px;
+            padding: 0 20px;
+            cursor: pointer;
+            font-weight: bold;
+            backdrop-filter: blur(4px);
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 6px var(--shadow);
+            min-height: 44px;
+            font-size: 1.6em;
+        }
+        button:hover {
+            background: var(--button-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px var(--shadow);
+        }
+        .icon-btn {
+            font-size: 3vw;
+            padding: 10px 18px;
+            min-width: 60px;
+            background: transparent !important;
+            box-shadow: none !important;
+        }
+        .icon-btn:hover {
+            background: var(--button-bg) !important;
+            box-shadow: 0 4px 10px var(--shadow);
+        }
+        .top-right-controls, .bottom-right-modes { position: absolute; z-index: 100; }
+        .top-right-controls { top: 65px; right: 10px; display: flex; flex-direction: column; gap: 12px; }
+        .bottom-right-modes {
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            gap: 12px;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+        #fullscreenBtn, #tvModeBtn {
+            width: 60px;
+            height: 60px;
+            padding: 0;
+            font-size: 2.4em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #settingsPanel {
+            position: absolute;
+            top: 65px;
+            left: 12px;
+            z-index: 100;
+        }
+        .settings-button {
+            background: var(--button-bg);
+            padding: 10px 18px;
+            border-radius: 50px;
+            font-size: 1.6vw;
+            cursor: pointer;
+            backdrop-filter: blur(6px);
+            box-shadow: 0 3px 8px var(--shadow);
+            transition: all 0.3s ease;
+            position: relative;
+            display: inline-block;
+            user-select: none;
+        }
+        .settings-button:hover {
+            background: var(--button-hover);
+            transform: translateY(-2px);
+        }
+
+        /* ── Tab bar ── */
+        #settingsTabBar {
+            display: none;
+            flex-direction: row;
+            flex-wrap: wrap;
+            gap: 6px;
+            position: fixed;
+            top: 65px;
+            left: 80px;
+            z-index: 200;
+        }
+        #settingsTabBar.open { display: flex; z-index: 601; }
+        .stab {
+            background: rgba(0,0,0,0.75);
+            border: 1px solid rgba(255,215,0,0.35);
+            color: #e0e0e0;
+            padding: 7px 14px;
+            border-radius: 8px;
+            font-size: 1vw;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background 0.2s, color 0.2s, border-color 0.2s;
+            backdrop-filter: blur(6px);
+        }
+        .stab:hover { background: rgba(255,215,0,0.15); color: var(--text-gold); border-color: var(--text-gold); }
+        .stab.active { background: rgba(255,215,0,0.22); color: var(--text-gold); border-color: var(--text-gold); }
+
+        /* ── Modal overlay ── */
+        #settingsModalOverlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.55);
+            z-index: 500;
+            backdrop-filter: blur(2px);
+            transition: background 0.3s, backdrop-filter 0.3s;
+        }
+        #settingsModalOverlay.open { display: block; }
+
+        /* ── Modal window ── */
+        .settings-modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(10,10,10,0.96);
+            border: 1px solid rgba(255,215,0,0.3);
+            border-radius: 16px;
+            padding: 0;
+            z-index: 600;
+            box-shadow: 0 12px 48px rgba(0,0,0,0.8);
+            width: 80vw;
+            max-width: 820px;
+            max-height: 82vh;
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .settings-modal.open {
+            display: flex;
+        }
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 20px;
+            border-bottom: 1px solid rgba(255,215,0,0.2);
+            flex-shrink: 0;
+        }
+        .modal-title {
+            color: var(--text-gold);
+            font-size: 1.2vw;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+        }
+        .modal-close {
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #fff;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            font-size: 1.1em;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+            flex-shrink: 0;
+            line-height: 1;
+        }
+        .modal-close:hover { background: rgba(255,80,80,0.35); border-color: #f55; }
+        .modal-body {
+            overflow-y: auto;
+            padding: 20px 24px;
+            flex: 1;
+        }
+
+        /* ── Settings groups inside modals ── */
+        .settings-group { margin: 14px 0; padding: 12px; border-radius: 6px; text-align: left; }
+        .settings-group:nth-child(odd) { background: rgba(0, 0, 0, 0.3); }
+        .settings-group:nth-child(even) { background: rgba(0, 20, 0, 0.4); }
+        .settings-group label { display: block; margin: 10px 0; }
+        .settings-group button {
+            font-size: 1.1em;
+            padding: 0 15px;
+            min-height: 33px;
+        }
+
+        /* ── Appearance sub-tabs ── */
+        .app-subtabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+            border-bottom: 1px solid rgba(255,215,0,0.2);
+            padding-bottom: 8px;
+        }
+        .app-subtab {
+            background: rgba(0,0,0,0.4);
+            border: 1px solid rgba(255,255,255,0.15);
+            color: #ccc;
+            padding: 5px 14px;
+            border-radius: 6px;
+            font-size: 0.95em;
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s;
+        }
+        .app-subtab:hover { background: rgba(255,215,0,0.12); color: var(--text-gold); }
+        .app-subtab.active { background: rgba(255,215,0,0.18); color: var(--text-gold); border-color: rgba(255,215,0,0.5); }
+        .app-subpanel { display: none; }
+        .app-subpanel.active { display: block; }
+
+        .help-text { line-height: 1.6; font-size: 1em; opacity: 0.95; }
+        .help-text strong { color: var(--text-gold); }
+        .tv-presets { margin-top: 15px; margin-bottom: 25px; }
+        .tv-presets button { display: block; width: 80%; margin: 8px auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 1vw; margin-top: 8px; }
+        th, td { padding: 6px; text-align: center; }
+        input[type=number], input[type=text], select, textarea {
+            width: 90px;
+            padding: 4px;
+            background: rgba(0,0,0,0.6);
+            color: #fff;
+            border: 1px solid #555;
+            border-radius: 4px;
+        }
+        select { background: #000; }
+        textarea { width: 100%; height: 100px; }
+        .note { font-size: 0.9em; opacity: 0.85; margin: 10px 0; font-style: italic; }
+        @media (max-width: 768px) {
+            .settings-button { font-size: 3.5vw; padding: 12px 20px; }
+            .stab { font-size: 2.2vw; padding: 6px 10px; }
+            .modal-title { font-size: 3vw; }
+            table, th, td { font-size: 2.6vw; }
+            input[type=number], input[type=text], select { width: 70px; }
+            .settings-tooltip { font-size: 2.8vw; padding: 12px; }
+            #fullscreenBtn, #tvModeBtn { width: 56px; height: 56px; font-size: 2.2em; }
+            .tv-presets button { width: 90%; }
+            .help-text { font-size: 2.2vw; }
+            #timer { font-size: 22vw; }
+            .blinds { font-size: 5.5vw; }
+            .next { font-size: 3vw; }
+            .timer-row { font-size: 3vw; }
+            .high-hand-label { font-size: 3vw; }
+            .high-hand-input { font-size: 4vw; }
+            .settings-modal { width: 95vw; max-height: 88vh; }
+            #settingsTabBar { left: 52px; gap: 4px; }
+        }
+        @keyframes levelUpFlash {
+            0% { color: var(--text-gold); text-shadow: 0 0 10px var(--text-gold); }
+            50% { color: #ffeb3b; text-shadow: 0 0 30px #ffeb3b, 0 0 40px #ffeb3b; }
+            100% { color: var(--text-gold); text-shadow: 0 0 10px var(--text-gold); }
+        }
+        .level-up { animation: levelUpFlash 1.5s ease-in-out; }
+
+        /* ======================== CHIP CRAWL ======================== */
+        #chipCrawl {
+            width: 100%;
+            background: rgba(0,0,0,0.55);
+            border-bottom: 2px solid rgba(255,215,0,0.35);
+            overflow: hidden;
+            white-space: nowrap;
+            padding: 6px 0;
+            z-index: 95;
+            flex-shrink: 0;
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+        }
+        #chipCrawlInner {
+            display: inline-flex;
+            align-items: center;
+            animation: chipScroll 28s linear infinite;
+        }
+        #chipCrawlInner:hover { animation-play-state: paused; }
+        @keyframes chipScroll {
+            0%   { transform: translateX(100vw); }
+            100% { transform: translateX(-100%); }
+        }
+        .chip-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin: 0 32px;
+            font-size: 1.4vw;
+            font-weight: bold;
+            letter-spacing: 1px;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
+        }
+        .chip-circle {
+            display: inline-block;
+            width: 1.6vw;
+            height: 1.6vw;
+            border-radius: 50%;
+            border: 3px solid rgba(255,255,255,0.45);
+            box-shadow: 0 0 6px rgba(0,0,0,0.6);
+            flex-shrink: 0;
+        }
+        .chip-divider {
+            display: inline-block;
+            color: rgba(255,215,0,0.4);
+            margin: 0 8px;
+            font-size: 1.2vw;
+        }
+    </style>
+</head>
+<body aria-label="Poker Tournament Timer">
+    <!-- CHIP VALUE CRAWL -->
+    <div id="chipCrawl" aria-label="Chip values">
+        <div id="chipCrawlInner">
+            <span class="chip-item"><span class="chip-circle" style="background:#4caf50;"></span><span style="color:#66e066;">GREEN = 25</span></span><span class="chip-divider">♠</span>
+            <span class="chip-item"><span class="chip-circle" style="background:#e53935;"></span><span style="color:#ff6b6b;">RED = 100</span></span><span class="chip-divider">♥</span>
+            <span class="chip-item"><span class="chip-circle" style="background:#212121;"></span><span style="color:#cccccc;">BLACK = 500</span></span><span class="chip-divider">♣</span>
+            <span class="chip-item"><span class="chip-circle" style="background:#f5f5f5;"></span><span style="color:#ffffff;">WHITE = 1,000</span></span><span class="chip-divider">♦</span>
+            <span class="chip-item"><span class="chip-circle" style="background:#e91e8c;"></span><span style="color:#ff80c8;">PINK = 5,000</span></span><span class="chip-divider">♠</span>
+            <span class="chip-item"><span class="chip-circle" style="background:#fdd835;"></span><span style="color:#ffe066;">YELLOW = 10,000</span></span><span class="chip-divider">♥</span>
+            <!-- Repeat for seamless loop -->
+            <span class="chip-item"><span class="chip-circle" style="background:#4caf50;"></span><span style="color:#66e066;">GREEN = 25</span></span><span class="chip-divider">♠</span>
+            <span class="chip-item"><span class="chip-circle" style="background:#e53935;"></span><span style="color:#ff6b6b;">RED = 100</span></span><span class="chip-divider">♥</span>
+            <span class="chip-item"><span class="chip-circle" style="background:#212121;"></span><span style="color:#cccccc;">BLACK = 500</span></span><span class="chip-divider">♣</span>
+            <span class="chip-item"><span class="chip-circle" style="background:#f5f5f5;"></span><span style="color:#ffffff;">WHITE = 1,000</span></span><span class="chip-divider">♦</span>
+            <span class="chip-item"><span class="chip-circle" style="background:#e91e8c;"></span><span style="color:#ff80c8;">PINK = 5,000</span></span><span class="chip-divider">♠</span>
+            <span class="chip-item"><span class="chip-circle" style="background:#fdd835;"></span><span style="color:#ffe066;">YELLOW = 10,000</span></span><span class="chip-divider">♥</span>
+        </div>
+    </div>
+    <div class="main-container" role="main">
+        <div id="timer" aria-live="polite" aria-label="Remaining time in current level">20:00</div>
+        <div id="breakMessage" class="break-message" style="display:none;" aria-live="assertive">
+            Hit The Space Bar<br>to Start Next Blind Level
+        </div>
+        <div class="blinds" id="blinds" aria-label="Current blinds"></div>
+        <div class="next" id="nextBlinds" aria-label="Next blinds or break"></div>
+        <div class="timer-row" id="timerRow" aria-label="Additional countdown timers">
+            <div class="timer-item" id="lunchCountdown" style="display:none">Dinner In: <span id="lunchTime" aria-label="Time until dinner break">00:00:00</span></div>
+            <div class="timer-item" id="rebuyCountdown" style="display:none">Last Rebuy In: <span id="rebuyTime" aria-label="Time until last rebuy">00:00:00</span></div>
+            <div class="timer-item" id="elapsedTime" style="display:none">Elapsed: <span id="elapsedSpan" aria-label="Tournament elapsed time">00:00:00</span></div>
+        </div>
+        <!-- HIGH HAND AREA -->
+        <div class="high-hand-container" id="highHandContainer">
+            <div id="highHandLabel" class="high-hand-label">CURRENT HIGH HAND</div>
+            <input type="text" id="highHandInput" class="high-hand-input"
+                   placeholder="ENTER HIGH HAND"
+                   aria-label="High hand input - 5 cards">
+        </div>
+    </div>
+    <img id="logo" src="Media/logo.png?v=20260103" alt="Tournament Logo">
+    <div class="top-right-controls" aria-label="Timer controls">
+        <div class="nav-row">
+            <button class="prev icon-btn" onclick="previousLevel()" aria-label="Previous level">⏪</button>
+            <button class="pause icon-btn" id="pauseBtn" onclick="togglePause()" aria-label="Pause or play timer">▶</button>
+            <button class="icon-btn" onclick="nextLevel()" aria-label="Next level">⏩</button>
+        </div>
+    </div>
+    <div class="bottom-right-modes" aria-label="Display modes">
+        <button id="fullscreenBtn" onclick="toggleFullscreen()" aria-label="Toggle fullscreen">⛶</button>
+    </div>
+    <div class="settings-panel" id="settingsPanel">
+        <div class="settings-button" id="settingsButton" aria-label="Open settings menu">⚙️</div>
+        <!-- ── Horizontal tab bar (shown when gear is active) ── -->
+        <div id="settingsTabBar" role="tablist" aria-label="Settings tabs">
+            <button class="stab" data-modal="modal-timer" role="tab">Set Timer</button>
+            <button class="stab" data-modal="modal-blinds" role="tab">Blinds</button>
+            <button class="stab" data-modal="modal-appearance" role="tab">Appearance</button>
+            <button class="stab" data-modal="modal-timers" role="tab">Countdowns</button>
+            <button class="stab" data-modal="modal-tournament" role="tab">Tournament</button>
+            <button class="stab" data-modal="modal-sounds" role="tab">Sounds</button>
+            <button class="stab" data-modal="modal-ticker" role="tab">Ticker</button>
+            <button class="stab" data-modal="modal-help" role="tab">Help</button>
+        </div>
+
+        <!-- ── Shared overlay ── -->
+        <div id="settingsModalOverlay"></div>
+
+        <!-- ── Modal: Manual Timer Adjustment ── -->
+        <div class="settings-modal" id="modal-timer" role="dialog" aria-labelledby="modal-timer-title">
+            <div class="modal-header">
+                <span class="modal-title" id="modal-timer-title">Manual Timer Adjustment</span>
+                <button class="modal-close" aria-label="Close">&#x2715;</button>
+            </div>
+            <div class="modal-body">
+                <div class="settings-group">
+                    <label>Set Timer Manually (e.g. 10, 1.5, or 05:30)</label>
+                    <input type="text" id="manualTimeInput" placeholder="10" style="width:120px;padding:6px" aria-label="Manual time input">
+                    <button onclick="setManualTime()">Apply</button>
+                </div>
+                <div class="settings-group" style="text-align:center;">
+                    <button onclick="addTime(-60)">−1 min</button>
+                    <button onclick="addTime(60)">+1 min</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Modal: Blind Structure Editor ── -->
+        <div class="settings-modal" id="modal-blinds" role="dialog" aria-labelledby="modal-blinds-title">
+            <div class="modal-header">
+                <span class="modal-title" id="modal-blinds-title">Blind Structure Editor</span>
+                <button class="modal-close" aria-label="Close">&#x2715;</button>
+            </div>
+            <div class="modal-body">
+                <div class="settings-group">
+                    <p class="note">Saved structures are stored in your browser's localStorage (not in the Saves folder).
+                    Use Export/Import to back them up or transfer to another device.</p>
+                    <label>Load Saved Structure:</label>
+                    <select id="savedStructuresSelect" aria-label="Saved structures dropdown"></select>
+                    <button onclick="loadSelectedStructure()">Load</button>
+                    <button onclick="deleteSelectedStructure()">Delete</button>
+                </div>
+                <div class="settings-group">
+                    <button onclick="addBlindLevel()">+ Add Blind Level</button>
+                    <button onclick="addBreakLevel()">+ Add Break</button>
+                    <button onclick="generateFullStructure()">Generate Full Structure</button>
+                </div>
+                <div class="settings-group" style="max-height:280px;overflow-y:auto;">
+                    <table id="structureTable" aria-label="Blind structure table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Type</th>
+                                <th>Small Blind</th>
+                                <th>Big Blind</th>
+                                <th>Duration (min)</th>
+                                <th>Break Name</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="structureTbody"></tbody>
+                    </table>
+                </div>
+                <div class="settings-group">
+                    <button onclick="exportStructure()">Export Structure (JSON)</button>
+                    <input type="file" id="importFile" accept=".json" style="display:none;">
+                    <button onclick="document.getElementById('importFile').click()">Import Structure</button>
+                </div>
+                <div class="settings-group" style="text-align:center;">
+                    <input type="text" id="structureNameInput" placeholder="Structure name (e.g. Home Game)" style="width:220px;padding:6px;" aria-label="Structure name input">
+                    <button onclick="saveCurrentStructure()">Save Structure</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Modal: Appearance Options ── -->
+        <div class="settings-modal" id="modal-appearance" role="dialog" aria-labelledby="modal-appearance-title">
+            <div class="modal-header">
+                <span class="modal-title" id="modal-appearance-title">Appearance Options</span>
+                <button class="modal-close" aria-label="Close">&#x2715;</button>
+            </div>
+            <div class="modal-body">
+                <div class="app-subtabs">
+                    <button class="app-subtab active" data-subpanel="app-sizes">Sizes</button>
+                    <button class="app-subtab" data-subpanel="app-colours">Colours</button>
+                    <button class="app-subtab" data-subpanel="app-display">Display</button>
+                    <button class="app-subtab" data-subpanel="app-theme">Theme</button>
+                </div>
+                <div class="app-subpanel active" id="app-sizes">
+                    <div class="settings-group">
+                        <div class="slider-row">
+                            <label>Timer Size: <span id="timerSizeValue">18</span>vw</label>
+                            <input type="range" id="timerSizeSlider" min="12" max="35" value="18" step="1" aria-label="Timer size slider">
+                        </div>
+                        <div class="slider-row">
+                            <label>Blinds Text Size: <span id="blindsSizeValue">4.8</span>vw</label>
+                            <input type="range" id="blindsSizeSlider" min="3" max="10" value="4.8" step="0.1" aria-label="Blinds text size slider">
+                        </div>
+                        <div class="slider-row">
+                            <label>Next Blinds Size: <span id="nextSizeValue">2.4</span>vw</label>
+                            <input type="range" id="nextSizeSlider" min="1.5" max="5" value="2.4" step="0.1" aria-label="Next blinds size slider">
+                        </div>
+                        <div class="slider-row">
+                            <label>Countdowns Size: <span id="countdownSizeValue">2.4</span>vw</label>
+                            <input type="range" id="countdownSizeSlider" min="1.5" max="5" value="2.4" step="0.1" aria-label="Countdowns size slider">
+                        </div>
+                        <div class="slider-row">
+                            <label>Break Message Size: <span id="breakMsgSizeValue">3.8</span>vw</label>
+                            <input type="range" id="breakMsgSizeSlider" min="2" max="8" value="3.8" step="0.1" aria-label="Break message size slider">
+                        </div>
+                        <div class="slider-row">
+                            <label>Logo Size (%): <span id="logoSizeValue">100</span>%</label>
+                            <input type="range" id="logoSizeSlider" min="50" max="200" value="100" step="5" aria-label="Logo size slider">
+                        </div>
+                        <div class="slider-row">
+                            <label>Cursor Hide Delay: <span id="cursorHideDelayValue">5</span>s</label>
+                            <input type="range" id="cursorHideDelaySlider" min="1" max="30" value="5" step="1" aria-label="Cursor hide delay slider">
+                        </div>
+                        <div class="slider-row">
+                            <label>High Hand Label Size: <span id="highHandLabelSizeValue">2.1</span>vw</label>
+                            <input type="range" id="highHandLabelSizeSlider" min="1" max="4" value="2.1" step="0.1" aria-label="High hand label size slider">
+                        </div>
+                        <div class="slider-row">
+                            <label>High Hand Text Size: <span id="highHandSizeValue">3</span>vw</label>
+                            <input type="range" id="highHandSizeSlider" min="1.8" max="5.5" value="3" step="0.1" aria-label="High hand text size slider">
+                        </div>
+                    </div>
+                </div>
+                <div class="app-subpanel" id="app-colours">
+                    <div class="settings-group">
+                        <label>Main Timer Colour:
+                            <input type="color" id="mainTimerColorPicker" value="#ffd700" aria-label="Main timer colour picker">
+                        </label>
+                        <label>Blinds Colour:
+                            <input type="color" id="blindsColorPicker" value="#ffffff" aria-label="Blinds colour picker">
+                        </label>
+                        <label>Next Blinds Colour:
+                            <input type="color" id="nextColorPicker" value="#ffffff" aria-label="Next blinds colour picker">
+                        </label>
+                        <label>Dinner Countdown Colour:
+                            <input type="color" id="dinnerColorPicker" value="#ffcc00" aria-label="Dinner countdown colour picker">
+                        </label>
+                        <label>Last Rebuy Countdown Colour:
+                            <input type="color" id="rebuyColorPicker" value="#ff6666" aria-label="Last rebuy countdown colour picker">
+                        </label>
+                        <label>Elapsed Time Colour:
+                            <input type="color" id="elapsedColorPicker" value="#66ff66" aria-label="Elapsed time colour picker">
+                        </label>
+                        <label>High Hand Title Colour:
+                            <input type="color" id="highHandLabelColorPicker" value="#ffd700" aria-label="High hand label colour picker">
+                        </label>
+                        <label>High Hand Text Colour:
+                            <input type="color" id="highHandColorPicker" value="#ffd700" aria-label="High hand colour picker">
+                        </label>
+                    </div>
+                </div>
+                <div class="app-subpanel" id="app-display">
+                    <div class="settings-group">
+                        <label><input type="checkbox" id="autoHideCursor" checked> Auto-hide cursor after inactivity</label>
+                        <label><input type="checkbox" id="genericMode"> Generic mode (solid colour background, no logo)</label>
+                        <label><input type="checkbox" id="noLogoMode" checked> Hide logo even with image background</label>
+                        <label><input type="checkbox" id="showHighHand" checked> Show High Hand area</label>
+                    </div>
+                </div>
+                <div class="app-subpanel" id="app-theme">
+                    <div class="settings-group">
+                        <label><input type="radio" name="theme" id="normalMode" checked> Normal (Dark) Mode</label>
+                        <label><input type="radio" name="theme" id="highContrastMode"> High Contrast Mode</label>
+                    </div>
+                </div>
+                <div class="settings-group" style="text-align:center; margin-top:12px;">
+                    <button onclick="saveAppearanceDefaults()">Save as Default Appearance</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Modal: Additional Timers ── -->
+        <div class="settings-modal" id="modal-timers" role="dialog" aria-labelledby="modal-timers-title">
+            <div class="modal-header">
+                <span class="modal-title" id="modal-timers-title">Additional Timers</span>
+                <button class="modal-close" aria-label="Close">&#x2715;</button>
+            </div>
+            <div class="modal-body">
+                <div class="settings-group">
+                    <label><input type="checkbox" id="showElapsed"> Show Elapsed Time on main screen</label>
+                    <label><input type="checkbox" id="showRebuyCountdown" checked> Show Last Rebuy countdown on main screen</label>
+                    <label><input type="checkbox" id="showDinnerCountdown" checked> Show Dinner countdown on main screen</label>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Modal: Tournament End Behaviour ── -->
+        <div class="settings-modal" id="modal-tournament" role="dialog" aria-labelledby="modal-tournament-title">
+            <div class="modal-header">
+                <span class="modal-title" id="modal-tournament-title">Tournament End Behaviour</span>
+                <button class="modal-close" aria-label="Close">&#x2715;</button>
+            </div>
+            <div class="modal-body">
+                <div class="settings-group">
+                    <label><input type="checkbox" id="enableEndPrompt" checked> Show prompt when structure ends</label>
+                    <label>Number of extra blind levels to add:
+                        <input type="number" id="extraLevelsCount" min="1" max="20" value="5" style="width:60px;">
+                    </label>
+                    <p style="margin-top:16px; opacity:0.9;">
+                        <strong>Final message (fixed):</strong><br>
+                        Thank-you for using the Deez Nutz Poker Timer.<br>
+                        You can now safely close the browser tab/window.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Modal: Sounds ── -->
+        <div class="settings-modal" id="modal-sounds" role="dialog" aria-labelledby="modal-sounds-title">
+            <div class="modal-header">
+                <span class="modal-title" id="modal-sounds-title">Sounds</span>
+                <button class="modal-close" aria-label="Close">&#x2715;</button>
+            </div>
+            <div class="modal-body">
+                <div class="settings-group">
+                    <label>Warning Sound (1 min left)</label>
+                    <input type="file" id="warningUpload" accept="audio/*">
+                    <button onclick="testSound('warning')">Test</button>
+                </div>
+                <div class="settings-group">
+                    <label>End / Countdown Sound</label>
+                    <input type="file" id="endUpload" accept="audio/*">
+                    <button onclick="testSound('end')">Test</button>
+                </div>
+                <div class="settings-group">
+                    <label>Blinds Up Sound</label>
+                    <input type="file" id="blindsUpUpload" accept="audio/*">
+                    <button onclick="testSound('blindsUp')">Test</button>
+                </div>
+                <div class="settings-group">
+                    <label>Shuffle Up and Deal Sound <span style="opacity:0.65;font-size:0.85em;">(plays at tournament start &amp; after breaks)</span></label>
+                    <input type="file" id="shuffleUpload" accept="audio/*">
+                    <button onclick="testSound('shuffle')">Test</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Modal: Ticker ── -->
+        <div class="settings-modal" id="modal-ticker" role="dialog" aria-labelledby="modal-ticker-title">
+            <div class="modal-header">
+                <span class="modal-title" id="modal-ticker-title">Ticker</span>
+                <button class="modal-close" aria-label="Close">&#x2715;</button>
+            </div>
+            <div class="modal-body">
+                <div class="settings-group">
+                    <label><input type="checkbox" id="tickerVisible" checked> Show Ticker</label>
+                </div>
+                <div class="settings-group">
+                    <label>Ticker Font Size: <span id="tickerSizeValue">1.4</span>vw</label>
+                    <input type="range" id="tickerSizeSlider" min="0.6" max="3.0" value="1.4" step="0.1" aria-label="Ticker font size slider">
+                </div>
+                <div class="settings-group">
+                    <label>Ticker Speed: <span id="tickerSpeedValue">Medium</span></label>
+                    <input type="range" id="tickerSpeedSlider" min="1" max="5" value="3" step="1" aria-label="Ticker speed slider">
+                </div>
+                <div class="settings-group">
+                    <label for="tickerCustomText">Custom Ticker Message:</label>
+                    <input type="text" id="tickerCustomText" placeholder="e.g. Welcome to Game Night!" maxlength="200"
+                        style="width:100%;padding:8px 12px;font-size:1em;border-radius:8px;border:1px solid rgba(255,215,0,0.35);background:rgba(0,0,0,0.5);color:#fff;box-sizing:border-box;" aria-label="Custom ticker message">
+                </div>
+                <div class="settings-group">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                        <strong style="font-size:0.95em;color:var(--text-gold);">Chip Values</strong>
+                        <button id="addChipBtn" style="font-size:0.85em;padding:5px 14px;min-height:32px;">+ Add Chip</button>
+                    </div>
+                    <div id="chipEditorList" style="display:flex;flex-direction:column;gap:8px;max-height:260px;overflow-y:auto;padding-right:4px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Modal: Help ── -->
+        <div class="settings-modal" id="modal-help" role="dialog" aria-labelledby="modal-help-title">
+            <div class="modal-header">
+                <span class="modal-title" id="modal-help-title">Help</span>
+                <button class="modal-close" aria-label="Close">&#x2715;</button>
+            </div>
+            <div class="modal-body">
+                <div class="settings-group help-text">
+                    <p><strong>Release Version 1.0 - April 17, 2026</strong></p>
+                    <p><em>This MOD made by Rick</em></p>
+                    <p>This <strong>Poker Tournament Timer</strong> is a fully featured blind clock designed for home games and small tournaments.</p>
+                    <p><strong>Key Features:</strong></p>
+                    <ul>
+                        <li>Customizable blind structures with editable levels and breaks</li>
+                        <li>Countdowns for dinner break, last rebuy, and total elapsed time</li>
+                        <li>High Hand entry area (5 cards) with on/off toggle</li>
+                        <li>Individual colour selectors for every timer</li>
+                        <li>Multiple display themes (Dark, High Contrast)</li>
+                        <li>Fullscreen mode</li>
+                        <li>Customizable text sizes, logo placement/size, and background</li>
+                        <li>Custom sound upload for warnings and level changes</li>
+                        <li>Draggable and persistent logo positioning</li>
+                        <li>Keyboard shortcuts for full control</li>
+                    </ul>
+                    <p>Created by <strong>Aaron Misseri</strong> for <strong>4 Drunk Friends Inc.</strong><br>
+                    © 2026 4 Drunk Friends Inc. All rights reserved.</p>
+                    <p>Contact: <a href="mailto:contact@4drunkfriends.com" style="color:var(--text-gold);">contact@4drunkfriends.com</a></p>
+                </div>
+                <div class="settings-group help-text">
+                    <p><strong>Keyboard Shortcuts</strong></p>
+                    <table style="text-align:left;border-spacing:0;">
+                        <tbody>
+                            <tr><td style="padding:4px 16px 4px 0;color:var(--text-gold);font-family:monospace;white-space:nowrap;">Space / Enter</td><td style="padding:4px 0;">Pause / Play</td></tr>
+                            <tr><td style="padding:4px 16px 4px 0;color:var(--text-gold);font-family:monospace;white-space:nowrap;">← / P</td><td style="padding:4px 0;">Previous Level</td></tr>
+                            <tr><td style="padding:4px 16px 4px 0;color:var(--text-gold);font-family:monospace;white-space:nowrap;">→ / N</td><td style="padding:4px 0;">Next Level</td></tr>
+                            <tr><td style="padding:4px 16px 4px 0;color:var(--text-gold);font-family:monospace;white-space:nowrap;">+ / =</td><td style="padding:4px 0;">+1 minute</td></tr>
+                            <tr><td style="padding:4px 16px 4px 0;color:var(--text-gold);font-family:monospace;white-space:nowrap;">- / _</td><td style="padding:4px 0;">-1 minute</td></tr>
+                            <tr><td style="padding:4px 16px 4px 0;color:var(--text-gold);font-family:monospace;white-space:nowrap;">F</td><td style="padding:4px 0;">Toggle Fullscreen</td></tr>
+                            <tr><td style="padding:4px 16px 4px 0;color:var(--text-gold);font-family:monospace;white-space:nowrap;">Esc</td><td style="padding:4px 0;">Exit Fullscreen</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="settings-group" style="text-align:center;">
+                    <button onclick="restoreDefaults()">&#x267B;&#xFE0F; Restore Defaults</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <audio id="warningSound" preload="none" src="Media/warning.mp3"></audio>
+    <audio id="endSound" preload="none" src="Media/end.mp3"></audio>
+    <audio id="blindsUpSound" preload="none" src="Media/blinds-up.mp3"></audio>
+    <audio id="shuffleSound" preload="auto" src="Media/SHUFFLE-UP.MP3"></audio>
+    <script>
+        function formatNumber(num) {
+            return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        }
+        let inactivityTimeout;
+        let cursorHideDelay = 5000;
+        let autoHideCursorEnabled = true;
+        function showAll() {
+            document.body.classList.remove('cursor-hidden');
+            document.body.classList.remove('controls-hidden');
+        }
+        function startInactivityTimer() {
+            clearTimeout(inactivityTimeout);
+            showAll();
+            const inFullscreen = !!document.fullscreenElement;
+            if (!autoHideCursorEnabled && !inFullscreen) return;
+            inactivityTimeout = setTimeout(() => {
+                if (autoHideCursorEnabled) document.body.classList.add('cursor-hidden');
+                if (inFullscreen) document.body.classList.add('controls-hidden');
+            }, cursorHideDelay);
+        }
+        document.addEventListener('mousemove', startInactivityTimer);
+        document.addEventListener('mousedown', startInactivityTimer);
+        document.addEventListener('keydown', startInactivityTimer);
+        document.addEventListener('touchstart', startInactivityTimer);
+        document.addEventListener('fullscreenchange', () => {
+            if (document.fullscreenElement) document.body.classList.add('fullscreen-mode');
+            else document.body.classList.remove('fullscreen-mode');
+            startInactivityTimer();
+        });
+        startInactivityTimer();
+        const state = {
+            levels: [],
+            idx: 0,
+            timeLeft: 0,
+            paused: true,
+            last: performance.now(),
+            showRebuyCountdown: true,
+            showDinnerCountdown: true,
+            showElapsed: false,
+            totalElapsed: 0,
+            tournamentStarted: false,
+            tournamentStartTimestamp: 0,
+            genericMode: false,
+            noLogoMode: true,
+            tickerSize: 1.4,
+            tickerCustomText: '',
+            tickerVisible: true,
+            tickerSpeed: 3,
+            chips: null,
+            timerSize: 18,
+            blindsSize: 4.8,
+            nextSize: 2.4,
+            countdownSize: 2.4,
+            breakMsgSize: 3.8,
+            logoSizePercent: 100,
+            cursorHideDelay: 5,
+            autoHideCursor: true,
+            previousBlinds: null,
+            logoOffset: { x: 0, y: 0 },
+            enableEndPrompt: true,
+            extraLevelsCount: 5,
+            highHandSize: 3,
+            highHandColor: '#ffd700',
+            highHandText: '',
+            showHighHand: true,
+            highHandLabelSize: 2.1,
+            highHandLabelColor: '#ffd700'
+        };
+        const els = {
+            timer: document.getElementById("timer"),
+            breakMessage: document.getElementById("breakMessage"),
+            blinds: document.getElementById("blinds"),
+            nextBlinds: document.getElementById("nextBlinds"),
+            lunchCountdown: document.getElementById("lunchCountdown"),
+            lunchTime: document.getElementById("lunchTime"),
+            rebuyCountdown: document.getElementById("rebuyCountdown"),
+            rebuyTime: document.getElementById("rebuyTime"),
+            elapsedTime: document.getElementById("elapsedTime"),
+            elapsedSpan: document.getElementById("elapsedSpan"),
+            pauseBtn: document.getElementById("pauseBtn"),
+            structureTbody: document.getElementById("structureTbody"),
+            savedStructuresSelect: document.getElementById("savedStructuresSelect"),
+            structureNameInput: document.getElementById("structureNameInput"),
+            importFile: document.getElementById("importFile"),
+            manualTimeInput: document.getElementById("manualTimeInput"),
+            genericMode: document.getElementById("genericMode"),
+            noLogoMode: document.getElementById("noLogoMode"),
+            showElapsed: document.getElementById("showElapsed"),
+            showRebuyCountdown: document.getElementById("showRebuyCountdown"),
+            showDinnerCountdown: document.getElementById("showDinnerCountdown"),
+            warningSound: document.getElementById("warningSound"),
+            endSound: document.getElementById("endSound"),
+            blindsUpSound: document.getElementById("blindsUpSound"),
+            warningUpload: document.getElementById("warningUpload"),
+            endUpload: document.getElementById("endUpload"),
+            blindsUpUpload: document.getElementById("blindsUpUpload"),
+            logo: document.getElementById("logo"),
+            timerSizeSlider: document.getElementById("timerSizeSlider"),
+            timerSizeValue: document.getElementById("timerSizeValue"),
+            blindsSizeSlider: document.getElementById("blindsSizeSlider"),
+            blindsSizeValue: document.getElementById("blindsSizeValue"),
+            nextSizeSlider: document.getElementById("nextSizeSlider"),
+            nextSizeValue: document.getElementById("nextSizeValue"),
+            countdownSizeSlider: document.getElementById("countdownSizeSlider"),
+            countdownSizeValue: document.getElementById("countdownSizeValue"),
+            breakMsgSizeSlider: document.getElementById("breakMsgSizeSlider"),
+            breakMsgSizeValue: document.getElementById("breakMsgSizeValue"),
+            logoSizeSlider: document.getElementById("logoSizeSlider"),
+            logoSizeValue: document.getElementById("logoSizeValue"),
+            cursorHideDelaySlider: document.getElementById("cursorHideDelaySlider"),
+            cursorHideDelayValue: document.getElementById("cursorHideDelayValue"),
+            autoHideCursor: document.getElementById("autoHideCursor"),
+            timerRow: document.getElementById("timerRow"),
+            normalMode: document.getElementById("normalMode"),
+            highContrastMode: document.getElementById("highContrastMode"),
+            enableEndPrompt: document.getElementById("enableEndPrompt"),
+            extraLevelsCount: document.getElementById("extraLevelsCount"),
+            highHandInput: document.getElementById("highHandInput"),
+            highHandSizeSlider: document.getElementById("highHandSizeSlider"),
+            highHandSizeValue: document.getElementById("highHandSizeValue"),
+            highHandColorPicker: document.getElementById("highHandColorPicker"),
+            showHighHand: document.getElementById("showHighHand"),
+            highHandContainer: document.getElementById("highHandContainer"),
+            highHandLabel: document.getElementById("highHandLabel"),
+            highHandLabelSizeSlider: document.getElementById("highHandLabelSizeSlider"),
+            highHandLabelSizeValue: document.getElementById("highHandLabelSizeValue"),
+            highHandLabelColorPicker: document.getElementById("highHandLabelColorPicker"),
+            shuffleSound: document.getElementById("shuffleSound"),
+            shuffleUpload: document.getElementById("shuffleUpload"),
+            // Timer colour pickers
+            mainTimerColorPicker: document.getElementById("mainTimerColorPicker"),
+            blindsColorPicker: document.getElementById("blindsColorPicker"),
+            nextColorPicker: document.getElementById("nextColorPicker"),
+            dinnerColorPicker: document.getElementById("dinnerColorPicker"),
+            rebuyColorPicker: document.getElementById("rebuyColorPicker"),
+            elapsedColorPicker: document.getElementById("elapsedColorPicker"),
+            // Ticker
+            tickerSizeSlider: document.getElementById("tickerSizeSlider"),
+            tickerSizeValue: document.getElementById("tickerSizeValue"),
+            tickerSpeedSlider: document.getElementById("tickerSpeedSlider"),
+            tickerSpeedValue: document.getElementById("tickerSpeedValue"),
+            tickerCustomText: document.getElementById("tickerCustomText"),
+            tickerVisible: document.getElementById("tickerVisible"),
+            chipCrawlInner: document.getElementById("chipCrawlInner")
+        };
+        // Logo drag (unchanged)
+        let isDragging = false;
+        let dragStart = { x: 0, y: 0 };
+        function startLogoDrag(e) {
+            if (document.body.classList.contains('generic-mode') ||
+                document.body.classList.contains('no-logo')) return;
+            isDragging = true;
+            els.logo.classList.add('dragging');
+            let clientX, clientY;
+            if (e.type === 'mousedown') { clientX = e.clientX; clientY = e.clientY; }
+            else if (e.type === 'touchstart') { clientX = e.touches[0].clientX; clientY = e.touches[0].clientY; e.preventDefault(); }
+            const transform = window.getComputedStyle(els.logo).transform;
+            let offsetX = 0, offsetY = 0;
+            if (transform && transform !== 'none') {
+                const matrix = transform.match(/matrix\((.+)\)/);
+                if (matrix) {
+                    const values = matrix[1].split(',').map(v => parseFloat(v.trim()));
+                    offsetX = values[4] || 0;
+                    offsetY = values[5] || 0;
+                }
+            }
+            dragStart = { x: clientX - offsetX, y: clientY - offsetY };
+        }
+        function dragLogo(e) {
+            if (!isDragging) return;
+            e.preventDefault();
+            let clientX, clientY;
+            if (e.type === 'mousemove') { clientX = e.clientX; clientY = e.clientY; }
+            else if (e.type === 'touchmove') { clientX = e.touches[0].clientX; clientY = e.touches[0].clientY; }
+            const offsetX = clientX - dragStart.x;
+            const offsetY = clientY - dragStart.y;
+            els.logo.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
+            state.logoOffset = { x: offsetX, y: offsetY };
+            localStorage.setItem('poker_logoOffset', JSON.stringify(state.logoOffset));
+        }
+        function stopLogoDrag() {
+            if (isDragging) { isDragging = false; els.logo.classList.remove('dragging'); }
+        }
+        els.logo.addEventListener('mousedown', startLogoDrag);
+        els.logo.addEventListener('touchstart', startLogoDrag, { passive: false });
+        document.addEventListener('mousemove', dragLogo);
+        document.addEventListener('touchmove', dragLogo, { passive: false });
+        document.addEventListener('mouseup', stopLogoDrag);
+        document.addEventListener('touchend', stopLogoDrag);
+        els.autoHideCursor.addEventListener('change', () => {
+            autoHideCursorEnabled = els.autoHideCursor.checked;
+            state.autoHideCursor = autoHideCursorEnabled;
+            localStorage.setItem("poker_autoHideCursor", autoHideCursorEnabled);
+            startInactivityTimer();
+        });
+        function updateCursorHideDelay() {
+            const seconds = parseInt(els.cursorHideDelaySlider.value);
+            cursorHideDelay = seconds * 1000;
+            els.cursorHideDelayValue.textContent = seconds;
+            state.cursorHideDelay = seconds;
+            localStorage.setItem("poker_cursorHideDelay", seconds);
+            startInactivityTimer();
+        }
+        els.cursorHideDelaySlider.addEventListener("input", debounce(updateCursorHideDelay, 100));
+        // Tournament End Behaviour
+        els.enableEndPrompt.addEventListener('change', () => {
+            state.enableEndPrompt = els.enableEndPrompt.checked;
+            localStorage.setItem("poker_enableEndPrompt", state.enableEndPrompt);
+        });
+        els.extraLevelsCount.addEventListener('change', () => {
+            let val = parseInt(els.extraLevelsCount.value);
+            if (isNaN(val) || val < 1) val = 1;
+            if (val > 20) val = 20;
+            els.extraLevelsCount.value = val;
+            state.extraLevelsCount = val;
+            localStorage.setItem("poker_extraLevelsCount", val);
+        });
+        // High Hand handlers
+        function updateHighHandText() {
+            state.highHandText = els.highHandInput.value.trim();
+            localStorage.setItem("poker_highHandText", state.highHandText);
+            resizeHighHandInput();
+        }
+        els.highHandInput.addEventListener('input', updateHighHandText);
+        function updateHighHandSize() {
+            const size = parseFloat(els.highHandSizeSlider.value);
+            state.highHandSize = size;
+            els.highHandInput.style.fontSize = size + 'vw';
+            els.highHandSizeValue.textContent = size;
+            localStorage.setItem("poker_highHandSize", size);
+            resizeHighHandInput();
+        }
+        els.highHandSizeSlider.addEventListener("input", debounce(updateHighHandSize, 100));
+        function updateHighHandColor() {
+            state.highHandColor = els.highHandColorPicker.value;
+            els.highHandInput.style.color = state.highHandColor;
+            localStorage.setItem("poker_highHandColor", state.highHandColor);
+        }
+        els.highHandColorPicker.addEventListener('input', updateHighHandColor);
+        // NEW: High Hand visibility toggle
+        els.showHighHand.addEventListener('change', () => {
+            state.showHighHand = els.showHighHand.checked;
+            els.highHandContainer.style.display = state.showHighHand ? 'flex' : 'none';
+            localStorage.setItem("poker_showHighHand", state.showHighHand);
+        });
+        // High Hand Label handlers
+        function updateHighHandLabelSize() {
+            const size = parseFloat(els.highHandLabelSizeSlider.value);
+            state.highHandLabelSize = size;
+            if (els.highHandLabel) els.highHandLabel.style.fontSize = size + 'vw';
+            els.highHandLabelSizeValue.textContent = size;
+            localStorage.setItem("poker_highHandLabelSize", size);
+        }
+        els.highHandLabelSizeSlider.addEventListener("input", debounce(updateHighHandLabelSize, 100));
+        function updateHighHandLabelColor() {
+            state.highHandLabelColor = els.highHandLabelColorPicker.value;
+            if (els.highHandLabel) els.highHandLabel.style.color = state.highHandLabelColor;
+            localStorage.setItem("poker_highHandLabelColor", state.highHandLabelColor);
+        }
+        els.highHandLabelColorPicker.addEventListener('input', updateHighHandLabelColor);
+        // NEW: Timer colour handlers
+        function updateMainTimerColor() {
+            state.mainTimerColor = els.mainTimerColorPicker.value;
+            document.documentElement.style.setProperty('--main-timer-color', state.mainTimerColor);
+            localStorage.setItem("poker_mainTimerColor", state.mainTimerColor);
+        }
+        els.mainTimerColorPicker.addEventListener('input', updateMainTimerColor);
+        function updateBlindsColor() {
+            state.blindsColor = els.blindsColorPicker.value;
+            document.documentElement.style.setProperty('--blinds-color', state.blindsColor);
+            localStorage.setItem("poker_blindsColor", state.blindsColor);
+        }
+        els.blindsColorPicker.addEventListener('input', updateBlindsColor);
+        function updateNextColor() {
+            state.nextColor = els.nextColorPicker.value;
+            document.documentElement.style.setProperty('--next-color', state.nextColor);
+            localStorage.setItem("poker_nextColor", state.nextColor);
+        }
+        els.nextColorPicker.addEventListener('input', updateNextColor);
+        function updateDinnerColor() {
+            state.dinnerColor = els.dinnerColorPicker.value;
+            document.documentElement.style.setProperty('--dinner-color', state.dinnerColor);
+            localStorage.setItem("poker_dinnerColor", state.dinnerColor);
+        }
+        els.dinnerColorPicker.addEventListener('input', updateDinnerColor);
+        function updateRebuyColor() {
+            state.rebuyColor = els.rebuyColorPicker.value;
+            document.documentElement.style.setProperty('--rebuy-color', state.rebuyColor);
+            localStorage.setItem("poker_rebuyColor", state.rebuyColor);
+        }
+        els.rebuyColorPicker.addEventListener('input', updateRebuyColor);
+        function updateElapsedColor() {
+            state.elapsedColor = els.elapsedColorPicker.value;
+            document.documentElement.style.setProperty('--elapsed-color', state.elapsedColor);
+            localStorage.setItem("poker_elapsedColor", state.elapsedColor);
+        }
+        els.elapsedColorPicker.addEventListener('input', updateElapsedColor);
+
+        // ── Ticker handlers ──
+        const DEFAULT_CHIPS = [
+            { color: '#4caf50', name: 'GREEN',  value: '25'     },
+            { color: '#e53935', name: 'RED',    value: '100'    },
+            { color: '#1a1a1a', name: 'BLACK',  value: '500'    },
+            { color: '#f5f5f5', name: 'WHITE',  value: '1,000'  },
+            { color: '#e91e8c', name: 'PINK',   value: '5,000'  },
+            { color: '#fdd835', name: 'YELLOW', value: '10,000' }
+        ];
+        const SUIT_DIVIDERS = ['♠','♥','♣','♦'];
+
+        if (!state.chips) state.chips = DEFAULT_CHIPS.map(c => Object.assign({}, c));
+
+        function saveChips() {
+            localStorage.setItem('poker_chips', JSON.stringify(state.chips));
+        }
+
+        // Use a hidden canvas to test if a string is a valid CSS colour
+        const _colourCanvas = document.createElement('canvas');
+        _colourCanvas.width = _colourCanvas.height = 1;
+        const _colourCtx = _colourCanvas.getContext('2d');
+        function resolveColor(label) {
+            _colourCtx.clearRect(0, 0, 1, 1);
+            _colourCtx.fillStyle = '#000';
+            _colourCtx.fillStyle = label.trim();
+            return _colourCtx.fillStyle;
+        }
+
+        // Returns true if the resolved colour is too dark to read on a black background
+        function isDark(color) {
+            _colourCtx.clearRect(0, 0, 1, 1);
+            _colourCtx.fillStyle = color;
+            _colourCtx.fillRect(0, 0, 1, 1);
+            const [r, g, b] = _colourCtx.getImageData(0, 0, 1, 1).data;
+            // Relative luminance
+            const lum = 0.2126 * (r / 255) + 0.7152 * (g / 255) + 0.0722 * (b / 255);
+            return lum < 0.25;
+        }
+
+        // Returns a white halo text-shadow for dark colours, empty string otherwise
+        function outlineForColor(color) {
+            return isDark(color)
+                ? 'text-shadow:0 0 3px #fff, 0 0 6px #fff, 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff;'
+                : '';
+        }
+
+        // Returns a readable input text color — white for dark chips, the color itself for bright ones
+        function inputColorFor(color) {
+            return isDark(color) ? '#ffffff' : color;
+        }
+
+        function buildTickerContent() {
+            const size   = state.tickerSize;
+            const cSize  = (size * 1.14).toFixed(2);
+            const custom = (state.tickerCustomText || '').trim();
+            const customHTML = custom
+                ? `<span class="chip-item" style="font-size:${size}vw;color:#ffd700;font-style:italic;">${custom}</span><span class="chip-divider" style="font-size:${(size*0.86).toFixed(2)}vw;">★</span>`
+                : '';
+
+            let chipsHTML = '';
+            state.chips.forEach((chip, i) => {
+                const div     = SUIT_DIVIDERS[i % SUIT_DIVIDERS.length];
+                const color   = chip.color || '#888888';
+                const outline = outlineForColor(color);
+                chipsHTML +=
+                    `<span class="chip-item" style="font-size:${size}vw;">` +
+                    `<span class="chip-circle" style="background:${color};width:${cSize}vw;height:${cSize}vw;"></span>` +
+                    `<span style="color:${color};${outline}">${chip.name} = ${chip.value}</span>` +
+                    `</span><span class="chip-divider" style="font-size:${(size*0.86).toFixed(2)}vw;">${div}</span>`;
+            });
+
+            els.chipCrawlInner.innerHTML = customHTML + chipsHTML + customHTML + chipsHTML;
+        }
+
+        // ── Chip editor UI ──
+        function renderChipEditor() {
+            const list = document.getElementById('chipEditorList');
+            list.innerHTML = '';
+            state.chips.forEach((chip, i) => {
+                const color = chip.color || '#888888';
+                const row = document.createElement('div');
+                row.style.cssText = 'display:flex;align-items:center;gap:10px;background:rgba(255,255,255,0.06);border-radius:8px;padding:6px 10px;';
+
+                // Clickable circle = hidden colour picker
+                const pickerWrap = document.createElement('label');
+                pickerWrap.title = 'Pick chip colour';
+                pickerWrap.style.cssText = 'position:relative;flex-shrink:0;cursor:pointer;width:30px;height:30px;';
+
+                const swatch = document.createElement('span');
+                swatch.style.cssText = `display:block;width:30px;height:30px;border-radius:50%;background:${color};border:2px solid rgba(255,255,255,0.5);box-shadow:0 0 4px rgba(0,0,0,0.6);`;
+
+                const colorPicker = document.createElement('input');
+                colorPicker.type = 'color';
+                colorPicker.value = color;
+                colorPicker.style.cssText = 'position:absolute;opacity:0;width:100%;height:100%;top:0;left:0;cursor:pointer;';
+
+                pickerWrap.appendChild(swatch);
+                pickerWrap.appendChild(colorPicker);
+
+                // Name input — white text always
+                const nameInp = document.createElement('input');
+                nameInp.type = 'text';
+                nameInp.value = chip.name || '';
+                nameInp.placeholder = 'Name';
+                nameInp.maxLength = 20;
+                nameInp.style.cssText = 'flex:1;padding:5px 8px;border-radius:6px;border:1px solid rgba(255,215,0,0.3);background:rgba(0,0,0,0.4);color:#fff;font-size:0.9em;font-weight:bold;';
+
+                // Value input — white text always
+                const valueInp = document.createElement('input');
+                valueInp.type = 'text';
+                valueInp.value = chip.value || '';
+                valueInp.placeholder = 'Value';
+                valueInp.maxLength = 14;
+                valueInp.style.cssText = 'flex:1;padding:5px 8px;border-radius:6px;border:1px solid rgba(255,215,0,0.3);background:rgba(0,0,0,0.4);color:#fff;font-size:0.9em;';
+
+                // Remove button
+                const removeBtn = document.createElement('button');
+                removeBtn.textContent = '✕';
+                removeBtn.title = 'Remove chip';
+                removeBtn.style.cssText = 'background:rgba(255,60,60,0.2);border:1px solid rgba(255,60,60,0.4);color:#ff9999;min-height:32px;padding:0 10px;font-size:1em;border-radius:6px;flex-shrink:0;';
+
+                colorPicker.addEventListener('input', () => {
+                    state.chips[i].color = colorPicker.value;
+                    swatch.style.background = colorPicker.value;
+                    saveChips(); buildTickerContent();
+                });
+                nameInp.addEventListener('input', () => {
+                    state.chips[i].name = nameInp.value;
+                    saveChips(); buildTickerContent();
+                });
+                valueInp.addEventListener('input', () => {
+                    state.chips[i].value = valueInp.value;
+                    saveChips(); buildTickerContent();
+                });
+                removeBtn.addEventListener('click', () => {
+                    state.chips.splice(i, 1);
+                    saveChips(); buildTickerContent(); renderChipEditor();
+                });
+
+                row.appendChild(pickerWrap);
+                row.appendChild(nameInp);
+                row.appendChild(valueInp);
+                row.appendChild(removeBtn);
+                list.appendChild(row);
+            });
+        }
+
+        document.getElementById('addChipBtn').addEventListener('click', () => {
+            state.chips.push({ color: '#888888', name: 'CHIP', value: '0' });
+            saveChips(); buildTickerContent(); renderChipEditor();
+            const list = document.getElementById('chipEditorList');
+            list.scrollTop = list.scrollHeight;
+        });
+
+        function getTickerHeight() {
+            const crawl = document.getElementById('chipCrawl');
+            return state.tickerVisible ? crawl.offsetHeight : 0;
+        }
+
+        function repositionForTicker() {
+            const h = getTickerHeight();
+            const offset = h + 12;
+            document.querySelector('.main-container').style.paddingTop = (offset / window.innerHeight * 100 + 1) + 'vh';
+            document.querySelector('.top-right-controls').style.top = offset + 'px';
+            document.getElementById('settingsPanel').style.top = offset + 'px';
+            document.getElementById('settingsTabBar').style.top = offset + 'px';
+        }
+
+        function updateTickerSize() {
+            const size = parseFloat(els.tickerSizeSlider.value);
+            state.tickerSize = size;
+            els.tickerSizeValue.textContent = size.toFixed(1);
+            document.getElementById('chipCrawl').style.fontSize = size + 'vw';
+            localStorage.setItem("poker_tickerSize", size);
+            buildTickerContent();
+            requestAnimationFrame(repositionForTicker);
+        }
+        els.tickerSizeSlider.addEventListener("input", debounce(updateTickerSize, 80));
+
+        function updateTickerCustomText() {
+            state.tickerCustomText = els.tickerCustomText.value;
+            localStorage.setItem("poker_tickerCustomText", state.tickerCustomText);
+            buildTickerContent();
+        }
+        els.tickerCustomText.addEventListener('input', updateTickerCustomText);
+
+        function updateTickerVisibility() {
+            state.tickerVisible = els.tickerVisible.checked;
+            const crawl = document.getElementById('chipCrawl');
+            crawl.style.display = state.tickerVisible ? '' : 'none';
+            localStorage.setItem("poker_tickerVisible", state.tickerVisible);
+            requestAnimationFrame(repositionForTicker);
+        }
+        els.tickerVisible.addEventListener('change', updateTickerVisibility);
+
+        const TICKER_SPEED_LABELS = ['Very Slow', 'Slow', 'Medium', 'Fast', 'Very Fast'];
+        const TICKER_SPEED_DURATIONS = [60, 40, 28, 18, 10];
+
+        function updateTickerSpeed() {
+            const val = parseInt(els.tickerSpeedSlider.value);
+            state.tickerSpeed = val;
+            els.tickerSpeedValue.textContent = TICKER_SPEED_LABELS[val - 1];
+            els.chipCrawlInner.style.animationDuration = TICKER_SPEED_DURATIONS[val - 1] + 's';
+            localStorage.setItem("poker_tickerSpeed", val);
+        }
+        els.tickerSpeedSlider.addEventListener("input", updateTickerSpeed);
+
+        window.addEventListener('resize', debounce(repositionForTicker, 100));
+        // Settings UI – tabbed modal system
+        const settingsButton = document.getElementById('settingsButton');
+        const settingsTabBar = document.getElementById('settingsTabBar');
+        const settingsOverlay = document.getElementById('settingsModalOverlay');
+        let settingsOpen = false;
+
+        function openModal(modalId) {
+            document.querySelectorAll('.settings-modal').forEach(m => m.classList.remove('open'));
+            document.querySelectorAll('.stab').forEach(t => t.classList.remove('active'));
+            const modal = document.getElementById(modalId);
+            if (modal) modal.classList.add('open');
+            const tab = document.querySelector(`.stab[data-modal="${modalId}"]`);
+            if (tab) tab.classList.add('active');
+            settingsOverlay.classList.add('open');
+        }
+
+        let peekActive = false;
+        function closeAllModals() {
+            document.querySelectorAll('.settings-modal').forEach(m => m.classList.remove('open'));
+            document.querySelectorAll('.stab').forEach(t => t.classList.remove('active'));
+            settingsOverlay.classList.remove('open');
+        }
+
+        function closeSettingsMenu() {
+            settingsOpen = false;
+            settingsTabBar.classList.remove('open');
+            closeAllModals();
+        }
+
+        settingsButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            settingsOpen = !settingsOpen;
+            if (settingsOpen) {
+                settingsTabBar.classList.add('open');
+            } else {
+                closeSettingsMenu();
+            }
+        });
+
+        settingsTabBar.querySelectorAll('.stab').forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const modalId = tab.dataset.modal;
+                const modal = document.getElementById(modalId);
+                if (modal && modal.classList.contains('open')) {
+                    closeAllModals();
+                } else {
+                    openModal(modalId);
+                    if (modalId === 'modal-ticker') renderChipEditor();
+                }
+            });
+        });
+
+        document.querySelectorAll('.modal-close').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                closeAllModals();
+            });
+        });
+
+        settingsOverlay.addEventListener('click', (e) => {
+            e.stopPropagation();
+            closeAllModals();
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!settingsOpen) return;
+            const insidePanel = document.getElementById('settingsPanel').contains(e.target);
+            const insideTabBar = settingsTabBar.contains(e.target);
+            const insideModal = !!e.target.closest('.settings-modal');
+            if (!insidePanel && !insideTabBar && !insideModal) {
+                closeSettingsMenu();
+            }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && settingsOpen) closeSettingsMenu();
+        });
+
+        // ── Slider-preview: hide modals while dragging any slider, restore on release ──
+        let sliderDragModal = null;
+        let sliderDragOverlay = null;
+
+        function hideForSlider() {
+            // Remember which modal is open so we can restore it
+            sliderDragModal = document.querySelector('.settings-modal.open') || null;
+            sliderDragOverlay = settingsOverlay.classList.contains('open');
+            document.querySelectorAll('.settings-modal').forEach(m => m.style.visibility = 'hidden');
+            settingsOverlay.style.visibility = 'hidden';
+        }
+
+        function restoreAfterSlider() {
+            document.querySelectorAll('.settings-modal').forEach(m => m.style.visibility = '');
+            settingsOverlay.style.visibility = '';
+        }
+
+        // Attach to every range input in the settings panel
+        document.querySelectorAll('#settingsPanel input[type="range"]').forEach(slider => {
+            slider.addEventListener('mousedown', hideForSlider);
+            slider.addEventListener('touchstart', hideForSlider, { passive: true });
+            slider.addEventListener('mouseup', restoreAfterSlider);
+            slider.addEventListener('touchend', restoreAfterSlider);
+            // Safety: also restore if pointer leaves window while held
+            slider.addEventListener('mouseleave', (e) => {
+                if (e.buttons === 1) return; // still held, keep hidden
+                restoreAfterSlider();
+            });
+        });
+        document.querySelectorAll('.app-subtab').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const target = btn.dataset.subpanel;
+                document.querySelectorAll('.app-subtab').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.app-subpanel').forEach(p => p.classList.remove('active'));
+                btn.classList.add('active');
+                document.getElementById(target).classList.add('active');
+            });
+        });
+       
+        // Theme handling
+        els.normalMode.addEventListener('change', () => {
+            if (els.normalMode.checked) {
+                els.highContrastMode.checked = false;
+                document.body.classList.remove('high-contrast');
+                localStorage.setItem('poker_highContrast', false);
+            }
+        });
+        els.highContrastMode.addEventListener('change', () => {
+            if (els.highContrastMode.checked) {
+                els.normalMode.checked = false;
+                document.body.classList.add('high-contrast');
+                localStorage.setItem('poker_highContrast', true);
+            }
+        });
+        function setTVPreset(preset) {
+            if (preset === '4k') {
+                els.timerSizeSlider.value = 26; els.blindsSizeSlider.value = 6.5; els.nextSizeSlider.value = 3.2;
+                els.countdownSizeSlider.value = 3.2; els.breakMsgSizeSlider.value = 4.8; els.logoSizeSlider.value = 140;
+            } else if (preset === '1080p') {
+                els.timerSizeSlider.value = 18; els.blindsSizeSlider.value = 4.8; els.nextSizeSlider.value = 2.4;
+                els.countdownSizeSlider.value = 2.4; els.breakMsgSizeSlider.value = 3.8; els.logoSizeSlider.value = 115;
+            } else if (preset === '720p') {
+                els.timerSizeSlider.value = 16; els.blindsSizeSlider.value = 4.2; els.nextSizeSlider.value = 2.1;
+                els.countdownSizeSlider.value = 2.1; els.breakMsgSizeSlider.value = 3.4; els.logoSizeSlider.value = 100;
+            }
+            updateTimerSize(); updateBlindsSize(); updateNextSize();
+            updateCountdownSize(); updateBreakMsgSize(); updateLogoSize();
+            startInactivityTimer();
+        }
+        function updateLogoSize() {
+            const percent = parseInt(els.logoSizeSlider.value);
+            state.logoSizePercent = percent;
+            const baseMaxHeight = 166;
+            const baseMaxWidth = 414;
+            els.logo.style.maxHeight = (baseMaxHeight * percent / 100) + "px";
+            els.logo.style.maxWidth = (baseMaxWidth * percent / 100) + "px";
+            els.logoSizeValue.textContent = percent;
+            localStorage.setItem("poker_logoSizePercent", percent);
+        }
+        els.logoSizeSlider.addEventListener("input", debounce(updateLogoSize, 100));
+        function updateTimerSize() {
+            const size = els.timerSizeSlider.value;
+            state.timerSize = parseFloat(size);
+            els.timer.style.fontSize = size + "vw";
+            els.timerSizeValue.textContent = size;
+            localStorage.setItem("poker_timerSize", size);
+        }
+        els.timerSizeSlider.addEventListener("input", debounce(updateTimerSize, 100));
+        function updateBlindsSize() {
+            const size = els.blindsSizeSlider.value;
+            state.blindsSize = parseFloat(size);
+            els.blinds.style.fontSize = size + "vw";
+            els.blindsSizeValue.textContent = size;
+            localStorage.setItem("poker_blindsSize", size);
+        }
+        els.blindsSizeSlider.addEventListener("input", debounce(updateBlindsSize, 100));
+        function updateNextSize() {
+            const size = els.nextSizeSlider.value;
+            state.nextSize = parseFloat(size);
+            els.nextBlinds.style.fontSize = size + "vw";
+            els.nextSizeValue.textContent = size;
+            localStorage.setItem("poker_nextSize", size);
+        }
+        els.nextSizeSlider.addEventListener("input", debounce(updateNextSize, 100));
+        function updateCountdownSize() {
+            const size = els.countdownSizeSlider.value;
+            state.countdownSize = parseFloat(size);
+            els.timerRow.style.fontSize = size + "vw";
+            els.countdownSizeValue.textContent = size;
+            localStorage.setItem("poker_countdownSize", size);
+        }
+        els.countdownSizeSlider.addEventListener("input", debounce(updateCountdownSize, 100));
+        function updateBreakMsgSize() {
+            const size = els.breakMsgSizeSlider.value;
+            state.breakMsgSize = parseFloat(size);
+            els.breakMessage.style.fontSize = size + "vw";
+            els.breakMsgSizeValue.textContent = size;
+            localStorage.setItem("poker_breakMsgSize", size);
+        }
+        els.breakMsgSizeSlider.addEventListener("input", debounce(updateBreakMsgSize, 100));
+        function saveAppearanceDefaults() {
+            const defaults = {
+                timerSize: state.timerSize,
+                blindsSize: state.blindsSize,
+                nextSize: state.nextSize,
+                countdownSize: state.countdownSize,
+                breakMsgSize: state.breakMsgSize,
+                logoSizePercent: state.logoSizePercent,
+                cursorHideDelay: state.cursorHideDelay,
+                autoHideCursor: state.autoHideCursor,
+                genericMode: state.genericMode,
+                noLogoMode: state.noLogoMode,
+                highHandSize: state.highHandSize,
+                highHandColor: state.highHandColor,
+                highHandLabelSize: state.highHandLabelSize,
+                highHandLabelColor: state.highHandLabelColor,
+                mainTimerColor: state.mainTimerColor,
+                blindsColor: state.blindsColor,
+                nextColor: state.nextColor,
+                dinnerColor: state.dinnerColor,
+                rebuyColor: state.rebuyColor,
+                elapsedColor: state.elapsedColor
+            };
+            localStorage.setItem('poker_appearance_defaults', JSON.stringify(defaults));
+            alert("Appearance settings saved as defaults! They will be applied on next page load.");
+        }
+        function setManualTime() {
+            const input = els.manualTimeInput.value.trim();
+            if (!input) return;
+            let seconds = 0;
+            if (input.includes(':')) {
+                const parts = input.split(':');
+                if (parts.length === 2) {
+                    seconds = (parseInt(parts[0]) || 0) * 60 + (parseInt(parts[1]) || 0);
+                }
+            } else if (input.includes('.')) {
+                seconds = Math.round(parseFloat(input) * 60);
+            } else {
+                seconds = parseInt(input) * 60 || 0;
+            }
+            if (seconds > 0) {
+                state.timeLeft = seconds;
+                updateDisplay();
+                els.manualTimeInput.value = '';
+            } else {
+                alert("Invalid format. Use: 10, 1.5, or 05:30");
+            }
+        }
+        function testSound(type) {
+            const audio = type === 'warning' ? els.warningSound :
+                          type === 'end' ? els.endSound :
+                          type === 'shuffle' ? els.shuffleSound : els.blindsUpSound;
+            if (audio) { audio.currentTime = 0; audio.play().catch(() => {}); }
+        }
+        els.warningUpload.addEventListener('change', e => { if (e.target.files[0]) els.warningSound.src = URL.createObjectURL(e.target.files[0]); });
+        els.endUpload.addEventListener('change', e => { if (e.target.files[0]) els.endSound.src = URL.createObjectURL(e.target.files[0]); });
+        els.blindsUpUpload.addEventListener('change', e => { if (e.target.files[0]) els.blindsUpSound.src = URL.createObjectURL(e.target.files[0]); });
+        els.shuffleUpload.addEventListener('change', e => { if (e.target.files[0]) els.shuffleSound.src = URL.createObjectURL(e.target.files[0]); });
+        els.genericMode.addEventListener('change', () => {
+            state.genericMode = els.genericMode.checked;
+            document.body.classList.toggle('generic-mode', state.genericMode);
+            localStorage.setItem("poker_genericMode", state.genericMode);
+        });
+        els.noLogoMode.addEventListener('change', () => {
+            state.noLogoMode = els.noLogoMode.checked;
+            document.body.classList.toggle('no-logo', state.noLogoMode);
+            localStorage.setItem("poker_noLogoMode", state.noLogoMode);
+        });
+        els.showElapsed.addEventListener('change', () => {
+            state.showElapsed = els.showElapsed.checked;
+            els.elapsedTime.style.display = state.showElapsed ? "block" : "none";
+            updateDisplay();
+            localStorage.setItem("poker_showElapsed", state.showElapsed);
+        });
+        els.showRebuyCountdown.addEventListener('change', () => {
+            state.showRebuyCountdown = els.showRebuyCountdown.checked;
+            if (!state.showRebuyCountdown) els.rebuyCountdown.style.display = "none";
+            updateDisplay();
+            localStorage.setItem("poker_showRebuyCountdown", state.showRebuyCountdown);
+        });
+        els.showDinnerCountdown.addEventListener('change', () => {
+            state.showDinnerCountdown = els.showDinnerCountdown.checked;
+            if (!state.showDinnerCountdown) els.lunchCountdown.style.display = "none";
+            updateDisplay();
+            localStorage.setItem("poker_showDinnerCountdown", state.showDinnerCountdown);
+        });
+        function generateFullStructure() {
+            state.levels = [
+                {type:"blind",sb:25,bb:50,duration:20},
+                {type:"blind",sb:50,bb:100,duration:20},
+                {type:"blind",sb:100,bb:200,duration:20},
+                {type:"blind",sb:200,bb:400,duration:20},
+                {type:"blind",sb:300,bb:600,duration:20},
+                {type:"break",txt:"DINNER BREAK"},
+                {type:"blind",sb:400,bb:800,duration:20},
+                {type:"break",txt:"LAST REBUY BREAK"},
+                {type:"blind",sb:500,bb:1000,duration:15},
+                {type:"blind",sb:1000,bb:2000,duration:15},
+                {type:"blind",sb:2000,bb:4000,duration:15},
+                {type:"blind",sb:3000,bb:6000,duration:15},
+                {type:"blind",sb:4000,bb:8000,duration:15},
+                {type:"blind",sb:5000,bb:10000,duration:15},
+                {type:"blind",sb:10000,bb:20000,duration:15},
+                {type:"blind",sb:20000,bb:40000,duration:15},
+                {type:"blind",sb:30000,bb:60000,duration:15},
+                {type:"blind",sb:40000,bb:80000,duration:15},
+                {type:"blind",sb:50000,bb:100000,duration:15},
+                {type:"blind",sb:100000,bb:200000,duration:15}
+            ];
+            renderTable();
+        }
+        function refreshSavedList() {
+            const saved = JSON.parse(localStorage.getItem("poker_saved_structures") || "{}");
+            els.savedStructuresSelect.innerHTML = "<option value=''>-- Select --</option>";
+            Object.keys(saved).forEach(name => {
+                const opt = document.createElement("option");
+                opt.value = name;
+                opt.textContent = name;
+                if (name === localStorage.getItem("poker_current_structure_name")) opt.selected = true;
+                els.savedStructuresSelect.appendChild(opt);
+            });
+        }
+        let draggedRow = null;
+        function makeRowsDraggable() {
+            const rows = els.structureTbody.querySelectorAll("tr");
+            rows.forEach(row => {
+                row.draggable = true;
+                row.addEventListener("dragstart", e => {
+                    draggedRow = row;
+                    row.classList.add("dragging");
+                    e.dataTransfer.effectAllowed = "move";
+                });
+                row.addEventListener("dragend", () => {
+                    row.classList.remove("dragging");
+                    draggedRow = null;
+                });
+                row.addEventListener("dragover", e => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "move";
+                    row.classList.add("drag-over");
+                });
+                row.addEventListener("dragleave", () => {
+                    row.classList.remove("drag-over");
+                });
+                row.addEventListener("drop", e => {
+                    e.preventDefault();
+                    row.classList.remove("drag-over");
+                    if (draggedRow && draggedRow !== row) {
+                        const allRows = Array.from(els.structureTbody.querySelectorAll("tr"));
+                        const fromIdx = allRows.indexOf(draggedRow);
+                        const toIdx = allRows.indexOf(row);
+                        if (fromIdx < toIdx) {
+                            els.structureTbody.insertBefore(draggedRow, row.nextSibling);
+                        } else {
+                            els.structureTbody.insertBefore(draggedRow, row);
+                        }
+                        const level = state.levels.splice(fromIdx, 1)[0];
+                        state.levels.splice(toIdx, 0, level);
+                        renderTable();
+                    }
+                });
+            });
+        }
+        function renderTable() {
+            const fragment = document.createDocumentFragment();
+            const tbody = els.structureTbody;
+            tbody.innerHTML = '';
+            state.levels.forEach((level, i) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${i + 1}</td>
+                    <td>
+                        <select onchange="updateLevel(${i}, 'type', this.value)">
+                            <option value="blind" ${level.type==='blind'?'selected':''}>Blind</option>
+                            <option value="break" ${level.type==='break'?'selected':''}>Break</option>
+                        </select>
+                    </td>
+                    <td><input type="number" value="${level.sb||''}" onchange="updateLevel(${i}, 'sb', +this.value)" ${level.type==='break'?'style="display:none"':''}></td>
+                    <td><input type="number" value="${level.bb||''}" onchange="updateLevel(${i}, 'bb', +this.value)" ${level.type==='break'?'style="display:none"':''}></td>
+                    <td><input type="number" min="1" value="${level.duration||20}" onchange="updateLevel(${i}, 'duration', +this.value)" ${level.type==='break'?'style="display:none"':''}></td>
+                    <td><input type="text" value="${level.txt||''}" onchange="updateLevel(${i}, 'txt', this.value)" ${level.type==='blind'?'style="display:none"':''}></td>
+                    <td><button onclick="deleteLevel(${i})">×</button></td>
+                `;
+                if (level.type === 'blind') {
+                    const inputs = tr.querySelectorAll('input');
+                    inputs[0].addEventListener('input', e => {
+                        const sb = +e.target.value;
+                        if (!isNaN(sb)) inputs[1].value = sb * 2;
+                    });
+                }
+                fragment.appendChild(tr);
+            });
+            tbody.appendChild(fragment);
+            makeRowsDraggable();
+            refreshSavedList();
+        }
+        function updateLevel(i, key, value) {
+            if (key === 'type' && value === 'blind' && !state.levels[i].sb) {
+                state.levels[i].sb = 25;
+                state.levels[i].bb = 50;
+                state.levels[i].duration = 20;
+            }
+            state.levels[i][key] = value;
+            renderTable();
+            updateDisplay();
+        }
+        function addBlindLevel() {
+            const last = state.levels[state.levels.length - 1];
+            let sb = 25, bb = 50;
+            if (last && last.type === 'blind') {
+                sb = last.bb;
+                bb = last.bb * 2;
+            }
+            state.levels.push({ type: "blind", sb, bb, duration: 20 });
+            renderTable();
+        }
+        function addBreakLevel() {
+            state.levels.push({ type: "break", txt: "BREAK" });
+            renderTable();
+        }
+        function deleteLevel(i) {
+            state.levels.splice(i, 1);
+            renderTable();
+        }
+        function addExtraLevels(count) {
+            const lastBlind = [...state.levels].reverse().find(l => l.type === "blind");
+            if (!lastBlind) return;
+            let nextSB = lastBlind.bb;
+            for (let i = 0; i < count; i++) {
+                const sb = nextSB;
+                const bb = sb * 2;
+                state.levels.push({ type: "blind", sb, bb, duration: 15 });
+                nextSB = bb;
+            }
+            renderTable();
+            updateDisplay();
+        }
+        function saveCurrentStructure() {
+            const name = els.structureNameInput.value.trim() || "Unnamed Structure";
+            const saved = JSON.parse(localStorage.getItem("poker_saved_structures") || "{}");
+            saved[name] = state.levels;
+            localStorage.setItem("poker_saved_structures", JSON.stringify(saved));
+            localStorage.setItem("poker_current_structure_name", name);
+            alert('Structure "' + name + '" saved!');
+            refreshSavedList();
+        }
+        function loadSelectedStructure() {
+            const name = els.savedStructuresSelect.value;
+            if (name) {
+                const saved = JSON.parse(localStorage.getItem("poker_saved_structures") || "{}");
+                if (saved[name]) {
+                    state.levels = saved[name];
+                    localStorage.setItem("poker_current_structure_name", name);
+                    renderTable();
+                    updateDisplay();
+                }
+            }
+        }
+        function deleteSelectedStructure() {
+            const name = els.savedStructuresSelect.value;
+            if (!name || !confirm("Delete \"" + name + "\"?")) return;
+            const saved = JSON.parse(localStorage.getItem("poker_saved_structures") || "{}");
+            delete saved[name];
+            localStorage.setItem("poker_saved_structures", JSON.stringify(saved));
+            if (localStorage.getItem("poker_current_structure_name") === name) {
+                localStorage.removeItem("poker_current_structure_name");
+            }
+            refreshSavedList();
+        }
+        function exportStructure() {
+            const name = els.structureNameInput.value.trim() || "poker-structure";
+            const safeName = name.replace(/[^a-zA-Z0-9-_]/g, '_');
+            const filename = safeName + ".json";
+            const data = JSON.stringify(state.levels, null, 2);
+            const blob = new Blob([data], {type: "application/json"});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+        els.importFile.addEventListener('change', e => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = ev => {
+                try {
+                    state.levels = JSON.parse(ev.target.result);
+                    renderTable();
+                    alert("Structure imported!");
+                } catch (err) {
+                    alert("Invalid JSON file");
+                }
+            };
+            reader.readAsText(file);
+            e.target.value = "";
+        });
+        function sumBlindDurationsTo(targetIdx) {
+            let sum = 0;
+            for (let i = state.idx; i < targetIdx; i++) {
+                if (state.levels[i].type === "blind") {
+                    sum += dur(state.levels[i]);
+                }
+            }
+            return sum;
+        }
+        function updateDisplay() {
+            if (state.levels.length === 0 || state.idx >= state.levels.length) return;
+            const c = state.levels[state.idx];
+            const n = state.levels[state.idx + 1];
+            els.timer.textContent = mmss(state.timeLeft);
+            els.timer.style.color = state.timeLeft <= 60 ? "#ff3b3b" : "var(--main-timer-color)";
+            els.elapsedSpan.textContent = hhmmss(state.totalElapsed);
+            const dinnerBreakIdx = state.levels.findIndex(l => l.type === "break" && l.txt && l.txt.toUpperCase().includes("DINNER"));
+            const dinnerLevelIdx = dinnerBreakIdx > 0 ? dinnerBreakIdx - 1 : -1;
+            const isBeforeOrDuringDinnerLevel = dinnerLevelIdx !== -1 && state.idx <= dinnerLevelIdx;
+            if (state.showDinnerCountdown && isBeforeOrDuringDinnerLevel && c.type !== "break") {
+                let tillDinnerEnd = 0;
+                if (state.idx < dinnerLevelIdx) {
+                    tillDinnerEnd = sumBlindDurationsTo(dinnerLevelIdx) + state.timeLeft;
+                } else if (state.idx === dinnerLevelIdx) {
+                    tillDinnerEnd = state.timeLeft;
+                }
+                els.lunchTime.textContent = hhmmss(tillDinnerEnd);
+                els.lunchCountdown.style.display = "block";
+            } else {
+                els.lunchCountdown.style.display = "none";
+            }
+            const rebuyBreakIdx = state.levels.findIndex(l => l.type === "break" && l.txt && l.txt.toUpperCase().includes("REBUY"));
+            const rebuyLevelIdx = rebuyBreakIdx > 0 ? rebuyBreakIdx - 1 : -1;
+            const isBeforeOrDuringRebuyLevel = rebuyLevelIdx !== -1 && state.idx <= rebuyLevelIdx;
+            if (state.showRebuyCountdown && isBeforeOrDuringRebuyLevel && c.type !== "break") {
+                let tillRebuyEnd = 0;
+                if (state.idx < rebuyLevelIdx) {
+                    tillRebuyEnd = sumBlindDurationsTo(rebuyLevelIdx) + state.timeLeft;
+                } else if (state.idx === rebuyLevelIdx) {
+                    tillRebuyEnd = state.timeLeft;
+                }
+                els.rebuyTime.textContent = hhmmss(tillRebuyEnd);
+                els.rebuyCountdown.style.display = "block";
+            } else {
+                els.rebuyCountdown.style.display = "none";
+            }
+            els.elapsedTime.style.display = state.showElapsed ? "block" : "none";
+            if (c.type === "break") {
+                els.blinds.textContent = c.txt || "BREAK";
+                els.nextBlinds.textContent = n?.type === "blind" ? "Next: " + formatNumber(n.sb) + " / " + formatNumber(n.bb) : "";
+                document.body.classList.add("break");
+                els.timer.style.display = "none";
+                els.breakMessage.style.display = "block";
+            } else {
+                els.blinds.textContent = "Blinds: " + formatNumber(c.sb) + " / " + formatNumber(c.bb);
+                els.nextBlinds.textContent = n ? (n.type === "break" ? "Next: " + (n.txt || "BREAK") : "Next: " + formatNumber(n.sb) + " / " + formatNumber(n.bb)) : "";
+                document.body.classList.remove("break");
+                els.timer.style.display = "block";
+                els.breakMessage.style.display = "none";
+            }
+            if (state.previousBlinds !== null && c.type === "blind") {
+                const currentBlinds = c.sb + "/" + c.bb;
+                if (currentBlinds !== state.previousBlinds) {
+                    els.blinds.classList.add("level-up");
+                    setTimeout(() => {
+                        els.blinds.classList.remove("level-up");
+                    }, 1500);
+                }
+            }
+            state.previousBlinds = c.type === "blind" ? c.sb + "/" + c.bb : null;
+        }
+        const mmss = s => `${String(Math.floor(Math.max(0,s)/60)).padStart(2,'0')}:${String(Math.floor(Math.max(0,s)%60)).padStart(2,'0')}`;
+        const hhmmss = s => {
+            s = Math.max(0, Math.floor(s));
+            const h = Math.floor(s / 3600);
+            const m = Math.floor((s % 3600) / 60);
+            const sec = s % 60;
+            return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+        };
+        const dur = l => l.type === "blind" ? (l.duration || 20) * 60 : 0;
+        function startLevel() {
+            if (state.levels.length === 0) return;
+            state.timeLeft = dur(state.levels[state.idx]);
+            if (state.levels[state.idx].type === "break") {
+                state.paused = true;
+                els.pauseBtn.textContent = "▶";
+            }
+            updateDisplay();
+        }
+        function nextLevel() {
+            if (state.idx < state.levels.length - 1) {
+                state.idx++;
+                startLevel();
+            } else {
+                if (state.enableEndPrompt) {
+                    const addMore = confirm(`The tournament structure has ended.\n\nWould you like to automatically add ${state.extraLevelsCount} more blind levels?`);
+                    if (addMore) {
+                        addExtraLevels(state.extraLevelsCount);
+                        state.idx++;
+                        startLevel();
+                        return;
+                    }
+                }
+                alert("Thank-you for using the Deez Nutz Poker Timer.\nYou can now safely close the browser tab/window.");
+            }
+        }
+        function previousLevel() {
+            if (state.idx > 0) {
+                state.idx--;
+                startLevel();
+            }
+        }
+        function togglePause() {
+            const wasOnBreak = state.levels.length > 0 && state.idx < state.levels.length && state.levels[state.idx].type === "break";
+            state.paused = !state.paused;
+            if (!state.paused) {
+                if (!state.tournamentStarted) {
+                    state.tournamentStarted = true;
+                    state.tournamentStartTimestamp = performance.now();
+                    els.shuffleSound.currentTime = 0;
+                    els.shuffleSound.play().catch(() => {});
+                } else if (wasOnBreak) {
+                    els.shuffleSound.currentTime = 0;
+                    els.shuffleSound.play().catch(() => {});
+                }
+            }
+            els.pauseBtn.textContent = state.paused ? "▶" : "❚❚";
+        }
+        function addTime(sec) {
+            state.timeLeft += sec;
+            updateDisplay();
+        }
+        let lastUpdate = 0;
+        function loop(now) {
+            if (!state.last) state.last = now;
+            const dt = (now - state.last) / 1000;
+            state.last = now;
+            if (state.tournamentStarted) state.totalElapsed = (now - state.tournamentStartTimestamp) / 1000;
+            if (!state.paused) {
+                state.timeLeft -= dt;
+                if (Math.floor(state.timeLeft + dt) === 60 && Math.floor(state.timeLeft) <= 60) els.warningSound.play().catch(() => {});
+                if (state.timeLeft <= 5 && state.timeLeft > 0) {
+                    const cur = Math.floor(state.timeLeft);
+                    const prev = Math.floor(state.timeLeft + dt);
+                    if (cur < prev) els.endSound.play().catch(() => {});
+                }
+                if (state.timeLeft <= 0) {
+                    const currentLevel_ = state.levels[state.idx];
+                    const nextLevel_ = state.levels[state.idx + 1];
+                    if (currentLevel_ && currentLevel_.type !== "break" && nextLevel_ && nextLevel_.type !== "break") els.blindsUpSound.play().catch(() => {});
+                    nextLevel();
+                }
+            }
+            if (now - lastUpdate >= 1000) {
+                updateDisplay();
+                lastUpdate = now;
+            }
+            requestAnimationFrame(loop);
+        }
+        function resetTournament() {
+            if (!confirm("Reset the tournament to pre-start conditions?\n\nThis will return to Level 1, stop the timer, and clear elapsed time.")) return;
+            state.idx = 0;
+            state.paused = true;
+            state.tournamentStarted = false;
+            state.tournamentStartTimestamp = 0;
+            state.totalElapsed = 0;
+            state.previousBlinds = null;
+            state.last = performance.now();
+            els.pauseBtn.textContent = "▶";
+            // Clear high hand
+            state.highHandText = '';
+            els.highHandInput.value = '';
+            resizeHighHandInput();
+            // Remove break class if lingering
+            document.body.classList.remove("break");
+            startLevel();
+        }
+        function toggleFullscreen() {
+            if (document.fullscreenElement) document.exitFullscreen();
+            else document.documentElement.requestFullscreen();
+        }
+        document.addEventListener('keydown', e => {
+            if (e.target.closest('input, textarea, select')) return;
+            switch (e.key.toLowerCase()) {
+                case ' ': case 'enter': e.preventDefault(); togglePause(); break;
+                case 'arrowleft': case 'p': e.preventDefault(); previousLevel(); break;
+                case 'arrowright': case 'n': e.preventDefault(); nextLevel(); break;
+                case '+': case '=': e.preventDefault(); addTime(60); break;
+                case '-': case '_': e.preventDefault(); addTime(-60); break;
+                case 'f': e.preventDefault(); toggleFullscreen(); break;
+                case 'escape':
+                    e.preventDefault();
+                    if (document.fullscreenElement) document.exitFullscreen();
+                    break;
+            }
+        });
+        function restoreDefaults() {
+            if (!confirm("Restore all defaults?")) return;
+            localStorage.clear();
+            location.reload();
+        }
+        function debounce(fn, delay) {
+            let timeout;
+            return function (...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => fn.apply(this, args), delay);
+            };
+        }
+        // Auto-resize High Hand input width
+        function resizeHighHandInput() {
+            const input = els.highHandInput;
+            input.style.width = 'fit-content';
+            const scrollW = input.scrollWidth;
+            const maxW = window.innerWidth * 0.92;
+            input.style.width = Math.min(scrollW + 40, maxW) + 'px';
+        }
+        window.addEventListener('load', () => {
+            generateFullStructure();
+            renderTable();
+            const defaultsJson = localStorage.getItem('poker_appearance_defaults');
+            if (defaultsJson) {
+                const defaults = JSON.parse(defaultsJson);
+                els.timerSizeSlider.value = defaults.timerSize || 18;
+                els.blindsSizeSlider.value = defaults.blindsSize || 4.8;
+                els.nextSizeSlider.value = defaults.nextSize || 2.4;
+                els.countdownSizeSlider.value = defaults.countdownSize || 2.4;
+                els.breakMsgSizeSlider.value = defaults.breakMsgSize || 3.8;
+                els.logoSizeSlider.value = defaults.logoSizePercent || 100;
+                els.cursorHideDelaySlider.value = defaults.cursorHideDelay || 5;
+                els.autoHideCursor.checked = defaults.autoHideCursor !== false;
+                els.genericMode.checked = defaults.genericMode || false;
+                els.noLogoMode.checked = defaults.noLogoMode || false;
+                state.highHandSize = defaults.highHandSize || 3;
+                state.highHandColor = defaults.highHandColor || '#ffd700';
+                state.highHandLabelSize = defaults.highHandLabelSize || 2.1;
+                state.highHandLabelColor = defaults.highHandLabelColor || '#ffd700';
+                els.highHandSizeSlider.value = state.highHandSize;
+                els.highHandColorPicker.value = state.highHandColor;
+                els.highHandLabelSizeSlider.value = state.highHandLabelSize;
+                els.highHandLabelColorPicker.value = state.highHandLabelColor;
+                // Load timer colours
+                state.mainTimerColor = defaults.mainTimerColor || '#ffd700';
+                state.blindsColor = defaults.blindsColor || '#ffffff';
+                state.nextColor = defaults.nextColor || '#ffffff';
+                state.dinnerColor = defaults.dinnerColor || '#ffcc00';
+                state.rebuyColor = defaults.rebuyColor || '#ff6666';
+                state.elapsedColor = defaults.elapsedColor || '#66ff66';
+                els.mainTimerColorPicker.value = state.mainTimerColor;
+                els.blindsColorPicker.value = state.blindsColor;
+                els.nextColorPicker.value = state.nextColor;
+                els.dinnerColorPicker.value = state.dinnerColor;
+                els.rebuyColorPicker.value = state.rebuyColor;
+                els.elapsedColorPicker.value = state.elapsedColor;
+                state.timerSize = defaults.timerSize || 18;
+                state.blindsSize = defaults.blindsSize || 4.8;
+                state.nextSize = defaults.nextSize || 2.4;
+                state.countdownSize = defaults.countdownSize || 2.4;
+                state.breakMsgSize = defaults.breakMsgSize || 3.8;
+                state.logoSizePercent = defaults.logoSizePercent || 100;
+                state.cursorHideDelay = defaults.cursorHideDelay || 5;
+                state.autoHideCursor = defaults.autoHideCursor !== false;
+                state.genericMode = defaults.genericMode || false;
+                state.noLogoMode = defaults.noLogoMode || false;
+                updateTimerSize();
+                updateBlindsSize();
+                updateNextSize();
+                updateCountdownSize();
+                updateBreakMsgSize();
+                updateLogoSize();
+                updateCursorHideDelay();
+                updateHighHandSize();
+                updateHighHandColor();
+                updateHighHandLabelSize();
+                updateHighHandLabelColor();
+                updateMainTimerColor();
+                updateBlindsColor();
+                updateNextColor();
+                updateDinnerColor();
+                updateRebuyColor();
+                updateElapsedColor();
+                autoHideCursorEnabled = state.autoHideCursor;
+                document.body.classList.toggle('generic-mode', state.genericMode);
+                document.body.classList.toggle('no-logo', state.noLogoMode);
+            } else {
+                els.timerSizeSlider.value = 18; els.blindsSizeSlider.value = 4.8; els.nextSizeSlider.value = 2.4;
+                els.countdownSizeSlider.value = 2.4; els.breakMsgSizeSlider.value = 3.8;
+                updateTimerSize(); updateBlindsSize(); updateNextSize(); updateCountdownSize(); updateBreakMsgSize();
+                els.noLogoMode.checked = true;
+                document.body.classList.add('no-logo');
+            }
+            state.enableEndPrompt = localStorage.getItem("poker_enableEndPrompt") !== "false";
+            state.extraLevelsCount = parseInt(localStorage.getItem("poker_extraLevelsCount")) || 5;
+            els.enableEndPrompt.checked = state.enableEndPrompt;
+            els.extraLevelsCount.value = state.extraLevelsCount;
+            // Countdown visibility restore
+            const savedShowRebuy = localStorage.getItem("poker_showRebuyCountdown");
+            if (savedShowRebuy !== null) {
+                state.showRebuyCountdown = savedShowRebuy !== "false";
+                els.showRebuyCountdown.checked = state.showRebuyCountdown;
+            }
+            const savedShowDinner = localStorage.getItem("poker_showDinnerCountdown");
+            if (savedShowDinner !== null) {
+                state.showDinnerCountdown = savedShowDinner !== "false";
+                els.showDinnerCountdown.checked = state.showDinnerCountdown;
+            }
+            const savedShowElapsed = localStorage.getItem("poker_showElapsed");
+            if (savedShowElapsed !== null) {
+                state.showElapsed = savedShowElapsed === "true";
+                els.showElapsed.checked = state.showElapsed;
+            }
+            // High Hand visibility
+            state.showHighHand = localStorage.getItem("poker_showHighHand") !== "false";
+            els.showHighHand.checked = state.showHighHand;
+            els.highHandContainer.style.display = state.showHighHand ? 'flex' : 'none';
+            // Current High Hand is reset on every screen refresh / page load
+            state.highHandText = '';
+            els.highHandInput.value = '';
+            resizeHighHandInput();
+            const isHigh = localStorage.getItem('poker_highContrast') === 'true';
+            if (isHigh) {
+                els.highContrastMode.checked = true;
+                document.body.classList.add('high-contrast');
+            } else {
+                els.normalMode.checked = true;
+            }
+            const savedOffset = localStorage.getItem('poker_logoOffset');
+            if (savedOffset) {
+                const offset = JSON.parse(savedOffset);
+                state.logoOffset = offset;
+                els.logo.style.transform = `translate(${offset.x}px, ${offset.y}px)`;
+            }
+            // Ticker restore
+            const savedChips = localStorage.getItem("poker_chips");
+            if (savedChips) {
+                try {
+                    const parsed = JSON.parse(savedChips);
+                    state.chips = parsed.map(c => ({
+                        color: c.color || resolveColor(c.label || 'gray'),
+                        name:  c.name  || c.label || 'CHIP',
+                        value: c.value || '0'
+                    }));
+                } catch(e) { state.chips = null; }
+            }
+            if (!state.chips || !state.chips.length) {
+                state.chips = DEFAULT_CHIPS.map(c => Object.assign({}, c));
+            }
+            const savedTickerSize = localStorage.getItem("poker_tickerSize");
+            if (savedTickerSize !== null) {
+                state.tickerSize = parseFloat(savedTickerSize);
+                els.tickerSizeSlider.value = state.tickerSize;
+            }
+            const savedTickerText = localStorage.getItem("poker_tickerCustomText");
+            if (savedTickerText !== null) {
+                state.tickerCustomText = savedTickerText;
+                els.tickerCustomText.value = savedTickerText;
+            }
+            const savedTickerVisible = localStorage.getItem("poker_tickerVisible");
+            if (savedTickerVisible !== null) {
+                state.tickerVisible = savedTickerVisible !== "false";
+                els.tickerVisible.checked = state.tickerVisible;
+                document.getElementById('chipCrawl').style.display = state.tickerVisible ? '' : 'none';
+            }
+            const savedTickerSpeed = localStorage.getItem("poker_tickerSpeed");
+            if (savedTickerSpeed !== null) {
+                state.tickerSpeed = parseInt(savedTickerSpeed);
+                els.tickerSpeedSlider.value = state.tickerSpeed;
+            }
+            updateTickerSize();
+            buildTickerContent();
+            updateTickerSpeed();
+            renderChipEditor();
+            requestAnimationFrame(repositionForTicker);
+            startLevel();
+            requestAnimationFrame(loop);
+            startInactivityTimer();
+        });
+    </script>
+</body>
+</html>
