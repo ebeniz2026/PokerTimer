@@ -1546,6 +1546,20 @@
             ]}
         ];
 
+        // Round up to nearest $5, last place gets the remainder
+        function calcPayouts(prizePool, places) {
+            const roundUp5 = n => Math.ceil(n / 5) * 5;
+            const amounts = [];
+            // Round up all places except last
+            for (let i = 0; i < places.length - 1; i++) {
+                amounts.push(roundUp5(prizePool * places[i].pct / 100));
+            }
+            // Last place = total minus all others
+            const lastAmt = prizePool - amounts.reduce((a, b) => a + b, 0);
+            amounts.push(Math.max(0, lastAmt));
+            return amounts;
+        }
+
         function updateSetupSummary() {
             const total    = parseInt(document.getElementById('setupTotalPlayers').value)  || 0;
             const elim     = parseInt(document.getElementById('setupEliminated').value)    || 0;
@@ -1580,8 +1594,8 @@
                     el.style.cssText = 'opacity:0.6;font-size:0.85em;border-bottom:1px solid rgba(255,215,0,0.2);padding-bottom:4px;';
                     rowsEl.appendChild(el);
                 });
-                structure.places.forEach(p => {
-                    const amount = (prizePool * p.pct / 100);
+                calcPayouts(prizePool, structure.places).forEach((amt, idx) => {
+                    const p = structure.places[idx];
                     const placeEl = document.createElement('span');
                     placeEl.textContent = p.place;
                     placeEl.style.cssText = 'color:var(--text-gold);font-weight:bold;';
@@ -1591,7 +1605,7 @@
                     pctEl.style.color = '#fff';
 
                     const amtEl = document.createElement('span');
-                    amtEl.textContent = '$' + amount.toLocaleString(undefined, {minimumFractionDigits:0, maximumFractionDigits:2});
+                    amtEl.textContent = '$' + amt.toLocaleString();
                     amtEl.style.color = '#fff';
 
                     rowsEl.appendChild(placeEl);
@@ -1636,10 +1650,10 @@
                 html += `<span class="payout-players">Players: ${remaining} of ${total}</span>`;
             }
             if (structure && prizePool > 0) {
-                html += structure.places.map(p => {
-                    const amt = '$' + (prizePool * p.pct / 100).toLocaleString(undefined, {minimumFractionDigits:0, maximumFractionDigits:2});
-                    return `<span class="payout-place"><strong>${p.place}:</strong> ${amt}</span>`;
-                }).join('');
+                const amounts = calcPayouts(prizePool, structure.places);
+                html += structure.places.map((p, i) =>
+                    `<span class="payout-place"><strong>${p.place}:</strong> $${amounts[i].toLocaleString()}</span>`
+                ).join('');
             }
 
             if (html) {
