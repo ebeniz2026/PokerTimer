@@ -464,6 +464,37 @@
         }
         .level-up { animation: levelUpFlash 1.5s ease-in-out; }
 
+        /* ======================== PAYOUT BAR ======================== */
+        #payoutBar {
+            width: 100%;
+            background: rgba(0,0,0,0.45);
+            border-top: 1px solid rgba(255,215,0,0.25);
+            padding: 6px 0;
+            text-align: center;
+            font-size: 1.6vw;
+            color: rgba(255,255,255,0.85);
+            flex-shrink: 0;
+            backdrop-filter: blur(4px);
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            z-index: 80;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        #payoutBar .payout-players {
+            color: var(--text-gold);
+            font-weight: bold;
+            margin-right: 2vw;
+        }
+        #payoutBar .payout-place {
+            margin: 0 1vw;
+        }
+        #payoutBar .payout-place strong {
+            color: var(--text-gold);
+        }
+
         /* ======================== CHIP CRAWL ======================== */
         #chipCrawl {
             width: 100%;
@@ -554,6 +585,8 @@
                    aria-label="High hand input - 5 cards">
         </div>
     </div>
+    <!-- PAYOUT BAR -->
+    <div id="payoutBar" style="display:none;" aria-label="Players remaining and payouts"></div>
     <img id="logo" src="Media/logo.png?v=20260103" alt="Tournament Logo">
     <div class="top-right-controls" aria-label="Timer controls">
         <div class="nav-row">
@@ -569,11 +602,12 @@
         <div class="settings-button" id="settingsButton" aria-label="Open settings menu">⚙️</div>
         <!-- ── Horizontal tab bar (shown when gear is active) ── -->
         <div id="settingsTabBar" role="tablist" aria-label="Settings tabs">
-            <button class="stab" data-modal="modal-timer" role="tab">Set Timer</button>
+            <button class="stab" data-modal="modal-setup" role="tab">Tournament Setup</button>
+            <button class="stab" data-modal="modal-timer" role="tab">Override Timer</button>
             <button class="stab" data-modal="modal-blinds" role="tab">Blinds</button>
             <button class="stab" data-modal="modal-appearance" role="tab">Appearance</button>
             <button class="stab" data-modal="modal-timers" role="tab">Countdowns</button>
-            <button class="stab" data-modal="modal-tournament" role="tab">Tournament</button>
+            <button class="stab" data-modal="modal-tournament" role="tab">End Of Tournament</button>
             <button class="stab" data-modal="modal-sounds" role="tab">Sounds</button>
             <button class="stab" data-modal="modal-ticker" role="tab">Ticker</button>
             <button class="stab" data-modal="modal-help" role="tab">Help</button>
@@ -615,6 +649,9 @@
                     <select id="savedStructuresSelect" aria-label="Saved structures dropdown"></select>
                     <button onclick="loadSelectedStructure()">Load</button>
                     <button onclick="deleteSelectedStructure()">Delete</button>
+                </div>
+                <div class="settings-group">
+                    <p class="note" style="margin:0;">Name a break <strong>"DINNER BREAK"</strong> or <strong>"LAST REBUY BREAK"</strong> to affect the corresponding countdown timer.</p>
                 </div>
                 <div class="settings-group">
                     <button onclick="addBlindLevel()">+ Add Blind Level</button>
@@ -700,6 +737,10 @@
                             <label>High Hand Text Size: <span id="highHandSizeValue">3</span>vw</label>
                             <input type="range" id="highHandSizeSlider" min="1.8" max="5.5" value="3" step="0.1" aria-label="High hand text size slider">
                         </div>
+                        <div class="slider-row">
+                            <label>Bottom Bar Size: <span id="payoutBarSizeValue">1.6</span>vw</label>
+                            <input type="range" id="payoutBarSizeSlider" min="0.8" max="4.0" value="1.6" step="0.1" aria-label="Payout bar size slider">
+                        </div>
                     </div>
                 </div>
                 <div class="app-subpanel" id="app-colours">
@@ -736,6 +777,7 @@
                         <label><input type="checkbox" id="genericMode"> Generic mode (solid colour background, no logo)</label>
                         <label><input type="checkbox" id="noLogoMode" checked> Hide logo even with image background</label>
                         <label><input type="checkbox" id="showHighHand" checked> Show High Hand area</label>
+                        <label><input type="checkbox" id="showPayoutBar" checked> Show Players Remaining &amp; Payouts on screen</label>
                     </div>
                 </div>
                 <div class="app-subpanel" id="app-theme">
@@ -849,6 +891,55 @@
             </div>
         </div>
 
+        <!-- ── Modal: Tournament Setup ── -->
+        <div class="settings-modal" id="modal-setup" role="dialog" aria-labelledby="modal-setup-title">
+            <div class="modal-header">
+                <span class="modal-title" id="modal-setup-title">Tournament Setup</span>
+                <button class="modal-close" aria-label="Close">&#x2715;</button>
+            </div>
+            <div class="modal-body">
+                <div class="settings-group">
+                    <label>Total Players:
+                        <input type="number" id="setupTotalPlayers" min="1" value="" placeholder="e.g. 20"
+                            style="width:100px;padding:6px 10px;border-radius:6px;border:1px solid rgba(255,215,0,0.3);background:rgba(0,0,0,0.4);color:#fff;font-size:1em;margin-left:8px;">
+                    </label>
+                    <label>Players Eliminated:
+                        <input type="number" id="setupEliminated" min="0" value="" placeholder="e.g. 5"
+                            style="width:100px;padding:6px 10px;border-radius:6px;border:1px solid rgba(255,215,0,0.3);background:rgba(0,0,0,0.4);color:#fff;font-size:1em;margin-left:8px;">
+                    </label>
+                </div>
+                <div class="settings-group">
+                    <label>Buy-In Amount ($):
+                        <input type="number" id="setupBuyIn" min="0" value="" placeholder="e.g. 50"
+                            style="width:100px;padding:6px 10px;border-radius:6px;border:1px solid rgba(255,215,0,0.3);background:rgba(0,0,0,0.4);color:#fff;font-size:1em;margin-left:8px;">
+                    </label>
+                    <label>Rebuy Amount ($):
+                        <input type="number" id="setupRebuyAmount" min="0" value="" placeholder="e.g. 25"
+                            style="width:100px;padding:6px 10px;border-radius:6px;border:1px solid rgba(255,215,0,0.3);background:rgba(0,0,0,0.4);color:#fff;font-size:1em;margin-left:8px;">
+                    </label>
+                    <label>Number of Rebuys:
+                        <input type="number" id="setupRebuyCount" min="0" value="" placeholder="e.g. 3"
+                            style="width:100px;padding:6px 10px;border-radius:6px;border:1px solid rgba(255,215,0,0.3);background:rgba(0,0,0,0.4);color:#fff;font-size:1em;margin-left:8px;">
+                    </label>
+                </div>
+                <div class="settings-group" style="background:rgba(255,215,0,0.07);border-radius:10px;padding:14px 16px;">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 20px;font-size:0.95em;">
+                        <span style="opacity:0.75;">Players Remaining:</span>
+                        <span id="setupRemaining" style="color:var(--text-gold);font-weight:bold;">—</span>
+                        <span style="opacity:0.75;">Total Prize Pool:</span>
+                        <span id="setupPrizePool" style="color:var(--text-gold);font-weight:bold;">—</span>
+                    </div>
+                </div>
+                <div id="setupPayouts" style="display:none;background:rgba(255,215,0,0.07);border-radius:10px;padding:14px 16px;margin-top:2px;">
+                    <div style="font-size:0.85em;opacity:0.75;margin-bottom:8px;letter-spacing:1px;text-transform:uppercase;">Payout Breakdown</div>
+                    <div id="setupPayoutRows" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px 16px;font-size:0.95em;"></div>
+                </div>
+                <div class="settings-group" style="text-align:center;margin-top:8px;">
+                    <button id="resetSetupBtn" style="background:rgba(255,60,60,0.2);border:1px solid rgba(255,60,60,0.4);color:#ff9999;">&#x267B;&#xFE0F; Reset Tournament</button>
+                </div>
+            </div>
+        </div>
+
         <!-- ── Modal: Help ── -->
         <div class="settings-modal" id="modal-help" role="dialog" aria-labelledby="modal-help-title">
             <div class="modal-header">
@@ -893,6 +984,7 @@
                 </div>
                 <div class="settings-group" style="text-align:center;">
                     <button onclick="restoreDefaults()">&#x267B;&#xFE0F; Restore Defaults</button>
+                    <p style="margin-top:10px;font-size:0.85em;opacity:0.75;">If <strong>RESTORE DEFAULTS</strong> doesn't work, clear the <strong>BROWSER CACHE</strong>.</p>
                 </div>
             </div>
         </div>
@@ -1026,6 +1118,8 @@
             showHighHand: document.getElementById("showHighHand"),
             highHandContainer: document.getElementById("highHandContainer"),
             highHandLabel: document.getElementById("highHandLabel"),
+            payoutBarSizeSlider: document.getElementById("payoutBarSizeSlider"),
+            payoutBarSizeValue: document.getElementById("payoutBarSizeValue"),
             highHandLabelSizeSlider: document.getElementById("highHandLabelSizeSlider"),
             highHandLabelSizeValue: document.getElementById("highHandLabelSizeValue"),
             highHandLabelColorPicker: document.getElementById("highHandLabelColorPicker"),
@@ -1200,7 +1294,13 @@
         }
         els.elapsedColorPicker.addEventListener('input', updateElapsedColor);
 
-        // ── Ticker handlers ──
+        function updatePayoutBarSize() {
+            const size = parseFloat(els.payoutBarSizeSlider.value);
+            els.payoutBarSizeValue.textContent = size.toFixed(1);
+            document.getElementById('payoutBar').style.fontSize = size + 'vw';
+            localStorage.setItem('poker_payoutBarSize', size);
+        }
+        els.payoutBarSizeSlider.addEventListener('input', debounce(updatePayoutBarSize, 80));
         const DEFAULT_CHIPS = [
             { color: '#4caf50', name: 'GREEN',  value: '25'     },
             { color: '#e53935', name: 'RED',    value: '100'    },
@@ -1408,6 +1508,141 @@
         els.tickerSpeedSlider.addEventListener("input", updateTickerSpeed);
 
         window.addEventListener('resize', debounce(repositionForTicker, 100));
+        // ── Tournament Setup handlers ──
+        const PAYOUT_STRUCTURES = [
+            { min: 2,  max: 8,  places: [
+                { place: '1st', pct: 70 },
+                { place: '2nd', pct: 30 }
+            ]},
+            { min: 9,  max: 16, places: [
+                { place: '1st', pct: 50 },
+                { place: '2nd', pct: 30 },
+                { place: '3rd', pct: 20 }
+            ]},
+            { min: 17, max: 24, places: [
+                { place: '1st', pct: 50 },
+                { place: '2nd', pct: 25 },
+                { place: '3rd', pct: 15 },
+                { place: '4th', pct: 10 }
+            ]},
+            { min: 25, max: 32, places: [
+                { place: '1st', pct: 40 },
+                { place: '2nd', pct: 25 },
+                { place: '3rd', pct: 20 },
+                { place: '4th', pct: 10 },
+                { place: '5th', pct: 5  }
+            ]}
+        ];
+
+        function updateSetupSummary() {
+            const total    = parseInt(document.getElementById('setupTotalPlayers').value)  || 0;
+            const elim     = parseInt(document.getElementById('setupEliminated').value)    || 0;
+            const buyIn    = parseFloat(document.getElementById('setupBuyIn').value)       || 0;
+            const rebuyAmt = parseFloat(document.getElementById('setupRebuyAmount').value) || 0;
+            const rebuys   = parseInt(document.getElementById('setupRebuyCount').value)    || 0;
+
+            const remaining = total > 0 ? Math.max(0, total - elim) : null;
+            const prizePool = (total * buyIn) + (rebuys * rebuyAmt);
+
+            document.getElementById('setupRemaining').textContent = remaining !== null ? remaining : '—';
+            document.getElementById('setupPrizePool').textContent = prizePool > 0 ? '$' + prizePool.toLocaleString() : '—';
+
+            // Payouts
+            const payoutsEl = document.getElementById('setupPayouts');
+            const rowsEl    = document.getElementById('setupPayoutRows');
+            const structure = PAYOUT_STRUCTURES.find(s => total >= s.min && total <= s.max);
+
+            if (structure && prizePool > 0) {
+                rowsEl.innerHTML = '';
+                // Header row
+                ['Place', 'Share', 'Amount'].forEach(h => {
+                    const el = document.createElement('span');
+                    el.textContent = h;
+                    el.style.cssText = 'opacity:0.6;font-size:0.85em;border-bottom:1px solid rgba(255,215,0,0.2);padding-bottom:4px;';
+                    rowsEl.appendChild(el);
+                });
+                structure.places.forEach(p => {
+                    const amount = (prizePool * p.pct / 100);
+                    const placeEl = document.createElement('span');
+                    placeEl.textContent = p.place;
+                    placeEl.style.cssText = 'color:var(--text-gold);font-weight:bold;';
+
+                    const pctEl = document.createElement('span');
+                    pctEl.textContent = p.pct + '%';
+                    pctEl.style.color = '#fff';
+
+                    const amtEl = document.createElement('span');
+                    amtEl.textContent = '$' + amount.toLocaleString(undefined, {minimumFractionDigits:0, maximumFractionDigits:2});
+                    amtEl.style.color = '#fff';
+
+                    rowsEl.appendChild(placeEl);
+                    rowsEl.appendChild(pctEl);
+                    rowsEl.appendChild(amtEl);
+                });
+                payoutsEl.style.display = 'block';
+            } else {
+                payoutsEl.style.display = 'none';
+            }
+
+            localStorage.setItem('poker_setup', JSON.stringify({ total, elim, buyIn, rebuyAmt, rebuys }));
+            updatePayoutBar();
+        }
+
+        function updatePayoutBar() {
+            const bar = document.getElementById('payoutBar');
+            const showBar = document.getElementById('showPayoutBar');
+            if (!showBar || !showBar.checked) { bar.style.display = 'none'; return; }
+
+            const total    = parseInt(document.getElementById('setupTotalPlayers').value)  || 0;
+            const elim     = parseInt(document.getElementById('setupEliminated').value)    || 0;
+            const buyIn    = parseFloat(document.getElementById('setupBuyIn').value)       || 0;
+            const rebuyAmt = parseFloat(document.getElementById('setupRebuyAmount').value) || 0;
+            const rebuys   = parseInt(document.getElementById('setupRebuyCount').value)    || 0;
+
+            const remaining = total > 0 ? Math.max(0, total - elim) : 0;
+            const prizePool = (total * buyIn) + (rebuys * rebuyAmt);
+            const structure = PAYOUT_STRUCTURES.find(s => total >= s.min && total <= s.max);
+
+            if (!total && !prizePool) { bar.style.display = 'none'; return; }
+
+            let html = '';
+            if (total > 0) {
+                html += `<span class="payout-players">Players: ${remaining} of ${total}</span>`;
+            }
+            if (structure && prizePool > 0) {
+                html += structure.places.map(p => {
+                    const amt = '$' + (prizePool * p.pct / 100).toLocaleString(undefined, {minimumFractionDigits:0, maximumFractionDigits:2});
+                    return `<span class="payout-place"><strong>${p.place}:</strong> ${amt}</span>`;
+                }).join('');
+            }
+
+            if (html) {
+                bar.innerHTML = html;
+                bar.style.display = 'block';
+            } else {
+                bar.style.display = 'none';
+            }
+        }
+
+        ['setupTotalPlayers','setupEliminated','setupBuyIn','setupRebuyAmount','setupRebuyCount'].forEach(id => {
+            document.getElementById(id).addEventListener('input', updateSetupSummary);
+        });
+
+        document.getElementById('showPayoutBar').addEventListener('change', () => {
+            localStorage.setItem('poker_showPayoutBar', document.getElementById('showPayoutBar').checked);
+            updatePayoutBar();
+        });
+
+        document.getElementById('resetSetupBtn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (!confirm('Reset all Tournament Setup values? This cannot be undone.')) return;
+            ['setupTotalPlayers','setupEliminated','setupBuyIn','setupRebuyAmount','setupRebuyCount'].forEach(id => {
+                document.getElementById(id).value = '';
+            });
+            localStorage.removeItem('poker_setup');
+            updateSetupSummary();
+        });
+
         // Settings UI – tabbed modal system
         const settingsButton = document.getElementById('settingsButton');
         const settingsTabBar = document.getElementById('settingsTabBar');
@@ -1464,7 +1699,12 @@
         document.querySelectorAll('.modal-close').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                closeAllModals();
+                // Close the modal panel but keep the tab bar open so user stays in the menu
+                document.querySelectorAll('.settings-modal').forEach(m => m.classList.remove('open'));
+                document.querySelectorAll('.stab').forEach(t => t.classList.remove('active'));
+                settingsOverlay.classList.remove('open');
+                settingsOpen = true;
+                settingsTabBar.classList.add('open');
             });
         });
 
@@ -1788,7 +2028,7 @@
                     <td><input type="number" value="${level.bb||''}" onchange="updateLevel(${i}, 'bb', +this.value)" ${level.type==='break'?'style="display:none"':''}></td>
                     <td><input type="number" min="1" value="${level.duration||20}" onchange="updateLevel(${i}, 'duration', +this.value)" ${level.type==='break'?'style="display:none"':''}></td>
                     <td><input type="text" value="${level.txt||''}" onchange="updateLevel(${i}, 'txt', this.value)" ${level.type==='blind'?'style="display:none"':''}></td>
-                    <td><button onclick="deleteLevel(${i})">×</button></td>
+                    <td><button onclick="event.stopPropagation(); deleteLevel(${i})">×</button></td>
                 `;
                 if (level.type === 'blind') {
                     const inputs = tr.querySelectorAll('input');
@@ -2277,6 +2517,29 @@
             updateTickerSpeed();
             renderChipEditor();
             requestAnimationFrame(repositionForTicker);
+            // Tournament Setup restore
+            const savedShowPayoutBar = localStorage.getItem('poker_showPayoutBar');
+            if (savedShowPayoutBar !== null) {
+                document.getElementById('showPayoutBar').checked = savedShowPayoutBar !== 'false';
+            }
+            const savedPayoutBarSize = localStorage.getItem('poker_payoutBarSize');
+            if (savedPayoutBarSize !== null) {
+                els.payoutBarSizeSlider.value = savedPayoutBarSize;
+            }
+            updatePayoutBarSize();
+            const savedSetup = localStorage.getItem('poker_setup');
+            if (savedSetup) {
+                try {
+                    const s = JSON.parse(savedSetup);
+                    if (s.total)    document.getElementById('setupTotalPlayers').value  = s.total;
+                    if (s.elim)     document.getElementById('setupEliminated').value     = s.elim;
+                    if (s.buyIn)    document.getElementById('setupBuyIn').value           = s.buyIn;
+                    if (s.rebuyAmt) document.getElementById('setupRebuyAmount').value    = s.rebuyAmt;
+                    if (s.rebuys)   document.getElementById('setupRebuyCount').value     = s.rebuys;
+                    updateSetupSummary();
+                } catch(e) {}
+            }
+            updatePayoutBar();
             startLevel();
             requestAnimationFrame(loop);
             startInactivityTimer();
