@@ -97,7 +97,7 @@
             justify-content: flex-start;
             width: 100%;
             flex: 1;
-            padding-top: 4vh;
+            padding-top: 0;
             padding-bottom: 2vh;
             position: relative;
         }
@@ -124,7 +124,7 @@
             font-weight: bold;
             color: var(--main-timer-color);
             text-shadow: 2px 2px 0 #000, -2px 2px 0 #000, 2px -2px 0 #000, -2px -2px 0 #000;
-            margin: 1vh 0 0.5vh 0;
+            margin: 0 0 0.5vh 0;
             transition: font-size 0.3s ease;
         }
         .break-message {
@@ -254,15 +254,6 @@
             gap: 12px;
             flex-direction: column;
             align-items: flex-end;
-        }
-        #fullscreenBtn, #tvModeBtn {
-            width: 60px;
-            height: 60px;
-            padding: 0;
-            font-size: 2.4em;
-            display: flex;
-            align-items: center;
-            justify-content: center;
         }
         #settingsPanel {
             position: absolute;
@@ -595,11 +586,11 @@
             <button class="icon-btn" onclick="nextLevel()" aria-label="Next level">⏩</button>
         </div>
     </div>
-    <div class="bottom-right-modes" aria-label="Display modes">
-        <button id="fullscreenBtn" onclick="toggleFullscreen()" aria-label="Toggle fullscreen">⛶</button>
-    </div>
     <div class="settings-panel" id="settingsPanel">
-        <div class="settings-button" id="settingsButton" aria-label="Open settings menu">⚙️</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+            <div class="settings-button" id="settingsButton" aria-label="Open settings menu">⚙️</div>
+            <button id="fullscreenBtn" onclick="toggleFullscreen()" aria-label="Toggle fullscreen" style="background:var(--button-bg);border:none;border-radius:50px;padding:10px 16px;font-size:1.6vw;cursor:pointer;backdrop-filter:blur(6px);box-shadow:0 3px 8px var(--shadow);color:var(--text-primary);transition:all 0.3s ease;">⛶</button>
+        </div>
         <!-- ── Horizontal tab bar (shown when gear is active) ── -->
         <div id="settingsTabBar" role="tablist" aria-label="Settings tabs">
             <button class="stab" data-modal="modal-setup" role="tab">Tournament Setup</button>
@@ -920,6 +911,11 @@
                     <label>Number of Rebuys:
                         <input type="number" id="setupRebuyCount" min="0" value="" placeholder="e.g. 3"
                             style="width:100px;padding:6px 10px;border-radius:6px;border:1px solid rgba(255,215,0,0.3);background:rgba(0,0,0,0.4);color:#fff;font-size:1em;margin-left:8px;">
+                    </label>
+                    <label>Other Cost ($):
+                        <input type="number" id="setupOtherCost" min="0" value="" placeholder="e.g. 20"
+                            style="width:100px;padding:6px 10px;border-radius:6px;border:1px solid rgba(255,215,0,0.3);background:rgba(0,0,0,0.4);color:#fff;font-size:1em;margin-left:8px;">
+                        <span style="font-size:0.8em;opacity:0.65;margin-left:6px;">(ie: Bounty, High Hand, Lunch... this amount will be subtracted from prize pool)</span>
                     </label>
                 </div>
                 <div class="settings-group">
@@ -1471,14 +1467,30 @@
             return state.tickerVisible ? crawl.offsetHeight : 0;
         }
 
-        function repositionForTicker() {
-            const h = getTickerHeight();
-            const offset = h + 12;
-            document.querySelector('.main-container').style.paddingTop = (offset / window.innerHeight * 100 + 1) + 'vh';
-            document.querySelector('.top-right-controls').style.top = offset + 'px';
-            document.getElementById('settingsPanel').style.top = offset + 'px';
-            document.getElementById('settingsTabBar').style.top = offset + 'px';
+        function repositionLayout() {
+            const tickerH    = getTickerHeight();
+            const tabBar     = document.getElementById('settingsTabBar');
+            const tabBarH    = (settingsOpen && tabBar) ? tabBar.offsetHeight : 0;
+            const isIdle     = document.body.classList.contains('controls-hidden');
+            // When fullscreen idle, snap timer right below ticker with no extra gap
+            const totalOffset = isIdle
+                ? tickerH
+                : tickerH + tabBarH + (tabBarH > 0 ? 4 : 0);
+            const container = document.querySelector('.main-container');
+            container.style.paddingTop = totalOffset + 'px';
+            const ctrlOffset = tickerH + 4;
+            document.querySelector('.top-right-controls').style.top = ctrlOffset + 'px';
+            document.getElementById('settingsPanel').style.top = ctrlOffset + 'px';
+            document.getElementById('settingsTabBar').style.top = tickerH + 'px';
         }
+
+        // Alias so existing callers still work
+        const repositionForTicker = repositionLayout;
+
+        // Watch for controls-hidden toggling (fullscreen idle) and reposition
+        new MutationObserver(() => {
+            requestAnimationFrame(repositionLayout);
+        }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
 
         function updateTickerSize() {
             const size = parseFloat(els.tickerSizeSlider.value);
@@ -1561,14 +1573,15 @@
         }
 
         function updateSetupSummary() {
-            const total    = parseInt(document.getElementById('setupTotalPlayers').value)  || 0;
-            const elim     = parseInt(document.getElementById('setupEliminated').value)    || 0;
-            const buyIn    = parseFloat(document.getElementById('setupBuyIn').value)       || 0;
-            const rebuyAmt = parseFloat(document.getElementById('setupRebuyAmount').value) || 0;
-            const rebuys   = parseInt(document.getElementById('setupRebuyCount').value)    || 0;
+            const total     = parseInt(document.getElementById('setupTotalPlayers').value)  || 0;
+            const elim      = parseInt(document.getElementById('setupEliminated').value)    || 0;
+            const buyIn     = parseFloat(document.getElementById('setupBuyIn').value)       || 0;
+            const rebuyAmt  = parseFloat(document.getElementById('setupRebuyAmount').value) || 0;
+            const rebuys    = parseInt(document.getElementById('setupRebuyCount').value)    || 0;
+            const otherCost = parseFloat(document.getElementById('setupOtherCost').value)   || 0;
 
             const remaining = total > 0 ? Math.max(0, total - elim) : null;
-            const prizePool = (total * buyIn) + (rebuys * rebuyAmt);
+            const prizePool = Math.max(0, (total * buyIn) + (rebuys * rebuyAmt) - otherCost);
 
             document.getElementById('setupRemaining').textContent = remaining !== null ? remaining : '—';
             document.getElementById('setupPrizePool').textContent = prizePool > 0 ? '$' + prizePool.toLocaleString() : '—';
@@ -1617,7 +1630,7 @@
                 payoutsEl.style.display = 'none';
             }
 
-            localStorage.setItem('poker_setup', JSON.stringify({ total, elim, buyIn, rebuyAmt, rebuys }));
+            localStorage.setItem('poker_setup', JSON.stringify({ total, elim, buyIn, rebuyAmt, rebuys, otherCost }));
             updatePayoutBar();
         }
 
@@ -1631,9 +1644,10 @@
             const buyIn    = parseFloat(document.getElementById('setupBuyIn').value)       || 0;
             const rebuyAmt = parseFloat(document.getElementById('setupRebuyAmount').value) || 0;
             const rebuys   = parseInt(document.getElementById('setupRebuyCount').value)    || 0;
+            const otherCost = parseFloat(document.getElementById('setupOtherCost').value)  || 0;
 
             const remaining = total > 0 ? Math.max(0, total - elim) : 0;
-            const prizePool = (total * buyIn) + (rebuys * rebuyAmt);
+            const prizePool = Math.max(0, (total * buyIn) + (rebuys * rebuyAmt) - otherCost);
             const override  = document.getElementById('setupPayoutOverride').value;
             let structure;
             if (override === 'auto') {
@@ -1664,7 +1678,7 @@
             }
         }
 
-        ['setupTotalPlayers','setupEliminated','setupBuyIn','setupRebuyAmount','setupRebuyCount'].forEach(id => {
+        ['setupTotalPlayers','setupEliminated','setupBuyIn','setupRebuyAmount','setupRebuyCount','setupOtherCost'].forEach(id => {
             document.getElementById(id).addEventListener('input', updateSetupSummary);
         });
 
@@ -1681,7 +1695,7 @@
         document.getElementById('resetSetupBtn').addEventListener('click', (e) => {
             e.stopPropagation();
             if (!confirm('Reset all Tournament Setup values? This cannot be undone.')) return;
-            ['setupTotalPlayers','setupEliminated','setupBuyIn','setupRebuyAmount','setupRebuyCount'].forEach(id => {
+            ['setupTotalPlayers','setupEliminated','setupBuyIn','setupRebuyAmount','setupRebuyCount','setupOtherCost'].forEach(id => {
                 document.getElementById(id).value = '';
             });
             document.getElementById('setupPayoutOverride').value = 'auto';
@@ -1717,6 +1731,7 @@
             settingsOpen = false;
             settingsTabBar.classList.remove('open');
             closeAllModals();
+            requestAnimationFrame(repositionLayout);
         }
 
         settingsButton.addEventListener('click', (e) => {
@@ -1727,6 +1742,7 @@
             } else {
                 closeSettingsMenu();
             }
+            requestAnimationFrame(repositionLayout);
         });
 
         settingsTabBar.querySelectorAll('.stab').forEach(tab => {
@@ -2582,11 +2598,12 @@
             if (savedSetup) {
                 try {
                     const s = JSON.parse(savedSetup);
-                    if (s.total)    document.getElementById('setupTotalPlayers').value  = s.total;
-                    if (s.elim)     document.getElementById('setupEliminated').value     = s.elim;
-                    if (s.buyIn)    document.getElementById('setupBuyIn').value           = s.buyIn;
-                    if (s.rebuyAmt) document.getElementById('setupRebuyAmount').value    = s.rebuyAmt;
-                    if (s.rebuys)   document.getElementById('setupRebuyCount').value     = s.rebuys;
+                    if (s.total)     document.getElementById('setupTotalPlayers').value  = s.total;
+                    if (s.elim)      document.getElementById('setupEliminated').value     = s.elim;
+                    if (s.buyIn)     document.getElementById('setupBuyIn').value           = s.buyIn;
+                    if (s.rebuyAmt)  document.getElementById('setupRebuyAmount').value    = s.rebuyAmt;
+                    if (s.rebuys)    document.getElementById('setupRebuyCount').value     = s.rebuys;
+                    if (s.otherCost) document.getElementById('setupOtherCost').value      = s.otherCost;
                     updateSetupSummary();
                 } catch(e) {}
             }
